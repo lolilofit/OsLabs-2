@@ -1,28 +1,47 @@
 #include<stdio.h>
 #include<pthread.h>
 #include<errno.h>
+#include <sched.h>
 
-pthread_mutex_t first;
-pthread_mutex_t second;
-
+pthread_mutex_t en;
+pthread_mutex_t ex;
+pthread_mutex_t it;
+pthread_mutex_t add;
+int flag = 1;
 
 void* do_work(void *args) {
-        int i;
-	pthread_cond_t _cound;
-        pthread_mutex_t _cound_lock;
-        pthread_mutex_init(&_cound, &_cound_lock);
+        int i, res;
 
+	pthread_mutex_lock(&it);
+	pthread_mutex_lock(&add);
+	flag = 0;
+	pthread_mutex_unlock(&add);
 
-	pthread_mutex_lock(&_cound_lock);
-        for(i = 0; i < 10; i++) {
-			pthread_mutex_lock(&first);
-//		 	if(pthread_mutex_lock(&first) == EDEADLK) {
-//				 pthread_cond_wait(&_cound, &_cound_lock);
-//			}
-               	 	printf("thread 1 - %d\n", i);
-		 	pthread_mutex_unlock(&second);
-        }
-	pthread_mutex_unlock(&_cound_lock);
+	int count = 0;
+        //for(i = 0; i < 3; i++) {
+	while(count < 10) {
+			if(count%3 == 0) {
+				if(pthread_mutex_lock(&en) != 0) 
+					continue;
+	       	 		printf("thread 1 - %d\n", count);
+				pthread_mutex_unlock(&it);
+			}
+			if(count%3 == 1) {
+				if(pthread_mutex_lock(&ex) != 0) 
+					continue;
+				printf("thread 1 - %d\n", count);
+				pthread_mutex_unlock(&en);
+			}
+			if(count%3==2) {
+				if(pthread_mutex_lock(&it) != 0) 
+					continue;
+				sleep(1);
+				printf("thread 1 - %d\n", count);
+				pthread_mutex_unlock(&ex);
+			}
+			count++;
+		}
+	 pthread_mutex_unlock(&it);
         return 0;
 }
 
@@ -31,43 +50,55 @@ int main(int argc, char** argv) {
         pthread_t thread;
         int status;
         int status_addr;
-
-
-	pthread_cond_t cound;
-	pthread_mutex_t cound_lock;
-	pthread_mutex_init(&cound, &cound_lock);
-
+	
 	pthread_mutexattr_t attr;
 	pthread_mutexattr_init(&attr);
 	pthread_mutexattr_settype(&attr, PTHREAD_MUTEX_ERRORCHECK);
-	pthread_mutex_init(&first, &attr);
-	pthread_mutex_init(&second, &attr);        
-//	pthread_mutex_init(&third, &attr);
+	pthread_mutex_init(&en, &attr);
+	pthread_mutex_init(&ex, &attr);
+	pthread_mutex_init(&it, &attr);
+	pthread_mutex_init(&add, &attr);
 
-	pthread_mutex_lock(&second);
-//	pthread_mutex_lock(&third);
-	
-//	char message_0 = "thread-0";
-//	char message_1 = "thread-1";
+	pthread_mutex_lock(&en);
 
 	status = pthread_create(&thread, NULL, do_work, NULL);
         if(status != 0) {
                 fprintf(stderr, "Error creating thread\n");
         }
 
-	int i;
-	pthread_mutex_lock(&cound_lock); 
-	 for(i = 0; i < 10; i++) {
-			pthread_mutex_lock(&second);  
-   //                   if(pthread_mutex_lock(&second) == EDEADLK) {
-//				pthread_cond_wait(&cound, &cound_lock);
-//			}
-                        printf("thread 0 - %d\n", i);
-                        pthread_mutex_unlock(&first);
-        }
-	pthread_mutex_unlock(&cound_lock);
+//	sleep(1);
+	pthread_mutex_lock(&add);
+	while(flag) {
+		pthread_mutex_unlock(&add); 
+		sched_yield();
+		pthread_mutex_lock(&add);
+	}
+	pthread_mutex_unlock(&add);
 
-
+	int count = 0, res;
+//	 for(i = 0; i < 3; i++) {
+	while(count < 10) {
+			if(count%3 == 0) {
+				if(pthread_mutex_lock(&ex) != 0) 
+					continue;
+                        	printf("thread 0 - %d\n", count);
+				pthread_mutex_unlock(&en);
+			}
+			if(count%3 == 1) {
+				if(pthread_mutex_lock(&it) != 0)
+					continue;
+				printf("thread 0 - %d\n", count);
+				pthread_mutex_unlock(&ex);
+			}
+			if(count%3 == 2) {
+				if(pthread_mutex_lock(&en)!= 0)
+					continue;
+				printf("thread 0 - %d\n", count);
+				pthread_mutex_unlock(&it);
+			}
+			count++;
+	}
+	 pthread_mutex_unlock(&en);
 
         status = pthread_join(thread, (void**)&status_addr);
         if(status != 0) {
@@ -75,9 +106,9 @@ int main(int argc, char** argv) {
         }
 
 
-	pthread_mutex_destroy(&first);
-	pthread_mutex_destroy(&second);
-	pthread_mutex_destroy(&cound_lock);
+	pthread_mutex_destroy(&ex);
+	pthread_mutex_destroy(&en);
+	pthread_mutex_destroy(&it);
         return 0;
 }
 

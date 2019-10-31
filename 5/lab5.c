@@ -8,13 +8,17 @@ void cleanup_func(void* args) {
 
 
 void* execute_thread(void* args) {
+	int oldstate;
+        if(pthread_setcanceltype(PTHREAD_CANCEL_ASYNCHRONOUS, &oldstate) != 0)
+		return 0;
+
 	pthread_setcancelstate(PTHREAD_CANCEL_DISABLE, NULL);
 	pthread_cleanup_push(cleanup_func, NULL);
 	pthread_setcancelstate(PTHREAD_CANCEL_ENABLE, NULL);
 
         while(1) 
                 printf("thread - 1 work\n");
-	pthread_cleanup_pop(1); 
+	pthread_cleanup_pop(0); 
         return 0;
 }
 

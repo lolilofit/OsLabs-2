@@ -7,6 +7,7 @@
 #include<termios.h>
 #include <sys/stat.h>
 #include <fcntl.h>
+#include<malloc.h>
 
 
 #define ITERATIONS_TO_CHECK 10000
@@ -17,13 +18,13 @@ pthread_barrier_t barrier;
 int max_iter = 0;
 
 void quit_handler(int sign) {
-	signal(sign, SIG_IGN);
-	if(sign == SIGINT) {
+//	signal(sign, SIG_IGN);
+//	if(sign == SIGINT) {
 		printf("flag is true\n");		
-		pthread_mutex_lock(&mutex);
+//		pthread_mutex_lock(&mutex);
 		flag = 1;		
-		pthread_mutex_unlock(&mutex);
-	}
+//		pthread_mutex_unlock(&mutex);
+//	}
 }
 
 
@@ -37,60 +38,61 @@ void* execute_thread(void* args) {
 	struct sigaction action;
  	struct sigaction ign;
 
-        action.sa_flags = SA_SIGINFO; 
-        action.sa_sigaction = quit_handler;
-	ign.sa_flags = SA_SIGINFO;
-        ign.sa_sigaction = SIG_IGN;
+//        action.sa_flags = SA_SIGINFO; 
+//        action.sa_sigaction = quit_handler;
+//	ign.sa_flags = SA_SIGINFO;
+//        ign.sa_sigaction = SIG_IGN;
  
-        if (sigaction(SIGINT, &action, NULL) == -1) { 
-            perror("sigusr: sigaction");
-            _exit(1);
-        }
+//        if (sigaction(SIGINT, &action, NULL) == -1) { 
+//            perror("sigusr: sigaction");
+//            _exit(1);
+//        }
 
 	double pi = 0.0;
         struct Param* param = (struct Param*)args;
-	int i = param->offset;
-
+	int i;
+	int iter = 0;
 
 	while(1) {
 
-       // for(i = param->offset; i < ITERATIONS_NUM; i+=THREADS_NUM) {
-          if((i/THREADS_NUM)%ITERATIONS_TO_CHECK == 0) {
+	printf("%d\n", param->offset);	
+       for(i = iter*10000 + param->offset; i < (iter+1)*10000; i+=THREADS_NUM) {
+       		pi += 1.0/(i*4.0 + 1.0);
+                pi -= 1.0/(i*4.0 + 3.0);
+	}
 
-		 pthread_mutex_lock(&mutex);
-		   if(i > max_iter)
-			max_iter = i;
-		   if((flag == 1) && (i==max_iter)) {
-			pthread_mutex_unlock(&mutex);
-			printf("thread-%d result=%f\n", param->offset, pi);
-		        ((struct Param*)args)->result = pi;
-			pthread_exit(args);
-			break;
-		   }
-	/*
-		if(flag != 1) {
-		   if (sigaction(SIGINT, &ign, NULL) == -1) {
-                    perror("sigusr: sigaction");
-                    _exit(1);
-                   }
+//		if(flag != 1) {
+//		   if (sigaction(SIGINT, &ign, NULL) == -1) {
+//                    perror("sigusr: sigaction");
+//                    _exit(1);
+//                   }
                 // pthread_mutex_lock(&mutex);
                 //        pthread_mutex_unlock(&mutex);
                         pthread_barrier_wait(&barrier);
 
-                   if (sigaction(SIGINT, &action, NULL) == -1) {
-                    perror("sigusr: sigaction");
-                    _exit(1);
-                   }
-		}
-	*/
-		  pthread_mutex_unlock(&mutex);
-		}
-		pi += 1.0/(i*4.0 + 1.0);
-                pi -= 1.0/(i*4.0 + 3.0);
-        	i += THREADS_NUM;
-	}
+ //                  if (sigaction(SIGINT, &action, NULL) == -1) {
+//                    perror("sigusr: sigaction");
+//                    _exit(1);
+//                   }
+//		}
 
-      return 0;
+		   pthread_mutex_lock(&mutex);
+                   if((flag == 1)) {
+                        pthread_mutex_unlock(&mutex);
+                        printf("thread-%d result=%f\n", param->offset, pi);
+                        ((struct Param*)args)->result = pi;
+                   //     pthread_exit(args);
+                        break;
+                   }
+		   else {
+			iter++;
+			if(iter<max_iter)
+				max_iter = iter;
+		   }
+		   pthread_mutex_unlock(&mutex);
+
+	}
+	 pthread_exit(args);
 }
 
 int main(int argc, char* argv[]) {
@@ -100,7 +102,12 @@ int main(int argc, char* argv[]) {
                 return 0;
         }
         THREADS_NUM = atoi(argv[1]);
-	pthread_barrier_init(&barrier, NULL, THREADS_NUM);
+	if(pthread_barrier_init(&barrier, NULL, THREADS_NUM) != 0) {
+		printf("barrirer init\n");
+		exit(-1);
+	}
+	signal( SIGINT, quit_handler);
+	signal( SIGTERM, quit_handler);
 
         pthread_t thread[THREADS_NUM];
         int status;

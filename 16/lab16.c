@@ -30,16 +30,10 @@ struct List* create_head() {
 }
 
 void add(struct List* list, char* str){
+	pthread_mutex_lock(&list_mutext);
 	struct List* tmp = list->next;
 	struct List* el = (struct List*)malloc(sizeof(struct List));
-	//el->str = (char*)malloc(sizeof(char)*81);
 	el->str = str;
-	
-	pthread_mutex_lock(&list_mutext);
-//	if(tmp == NULL) {
-//		list->next = el;
-//		return;
-//	}
 	el->next = tmp;
 	list->next=el;
 	pthread_mutex_unlock(&list_mutext);
@@ -63,15 +57,16 @@ void print_all(struct List* list) {
 }
 
 void swap(struct List* first, struct List* second) {
-	pthread_mutex_lock(&list_mutext);
+//	pthread_mutex_lock(&list_mutext);
 	char* tmp = first->str;
 	first->str = second->str;
 	second->str = tmp;
-	pthread_mutex_unlock(&list_mutext);
+//	pthread_mutex_unlock(&list_mutext);
 }
 
 void* sort(void* args) {
 	while(1) {
+		pthread_mutex_lock(&list_mutext);
 		struct List* list = ((struct List*)args)->next;
 		struct List* cur = list;
 		struct List* inner_cur = list;
@@ -84,9 +79,7 @@ void* sort(void* args) {
 			}
 			cur = cur->next;
 		}
-		
-//		printf("sorted::\n");
-//		print_all(list);
+		pthread_mutex_unlock(&list_mutext);
 		sleep(5);
 	}
 }
@@ -110,10 +103,9 @@ int main(int argc, char* argv[]){
 
 		if(strlen(get) == 1) {
 			print_all(list);
-//			break;
 			continue;
 		}
-			//dfdff
+
 		//if((get[0] == ".") && (strlen(get)==2))
 		//		break;
 		add(list, get);

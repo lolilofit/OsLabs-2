@@ -17,7 +17,7 @@ void* execute_thread(void* args) {
 	double pi = 0.0;
 	struct Param* param = (struct Param*)args;
 	
-	for(i = param->offset; i < ITERATIONS_NUM; i+=THREADS_NUM) {
+	for(i = param->offset; i < ITERATIONS_NUM+10000; i+=THREADS_NUM) {
 		pi += 1.0/(i*4.0 + 1.0);
          	pi -= 1.0/(i*4.0 + 3.0);
 	}
@@ -51,9 +51,9 @@ int main(int argc, char* argv[]) {
 
 	double result = 0.0;
         for(i = 0; i < THREADS_NUM; i++) {
-		struct Param* res;
-                status = pthread_join(thread[i], (void**)&res);
-		result += res->result;
+//		struct Param* res;
+                status = pthread_join(thread[i], NULL);
+		result += (params[i]).result;
 	 }
 
 	result = result * 4.0;

@@ -3,12 +3,12 @@
 
 
 void* do_work(void *args) {
-     
+
         int i;
         for(i = 0; i < 10; i++) {
                 printf("thread 1 - %d\n", i);
         }
-        return 0;
+        return i;
 }
 
 
@@ -24,6 +24,7 @@ int main(int argc, char** argv) {
         }
 
         status = pthread_join(thread, (void*)&status_addr);
+	printf("%d\n", (int)status_addr);
         if(status != 0) {
                 fprintf(stderr, "error\n");
         }
