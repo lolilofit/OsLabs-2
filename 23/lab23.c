@@ -43,7 +43,7 @@ void mymsqdrop(struct Queue* queue) {
 void mymsgdestroy(struct Queue* queue) {
 	sem_wait(&global);
 	struct Message* tmp = queue->head;
-	
+
 	struct Message* del_tmp;;
 	while(tmp) {
 		del_tmp  = tmp;
@@ -60,15 +60,12 @@ int mymsgget(struct Queue* queue, char* buf, size_t bufsize) {
 	if(queue == NULL)
                 return 0;
 
-	sem_wait(&global);
-	 if(queue->is_droped == 1) {
-                sem_post(&global);
-                return 0;
-        }
 	sem_wait(&is_full);
+	sem_wait(&global);
+
 	if(queue->is_droped == 1) {
+		sem_post(&global);
  		sem_post(&is_full);
-                sem_post(&global);
                 return 0;
         }
 	struct Message* res = queue->tail;
@@ -87,24 +84,20 @@ int mymsgget(struct Queue* queue, char* buf, size_t bufsize) {
 	if(queue->head != NULL)
 	printf("extracted : %s, new head is %s\n", buf, queue->head->message);
 	else { printf("extracted : %s, new head is null\n", buf);}
-	sem_post(&is_empty);
 	sem_post(&global);
+	sem_post(&is_empty);
 }
 
 int mymsgput(struct Queue* queue, char* msg) {
 	if(queue == NULL)
 		return 0;
 
-	sem_wait(&global);
-	if(queue->is_droped == 1) {
-		sem_post(&global);
-		return 0;
-	}
-
 	sem_wait(&is_empty);
+	sem_wait(&global);
+
 	if(queue->is_droped == 1) {
-                sem_post(&is_empty);
 		sem_post(&global);
+		sem_post(&is_empty);
                 return 0;
         }
 
@@ -136,8 +129,8 @@ int mymsgput(struct Queue* queue, char* msg) {
 	}
 
 	printf("added str %s = %s\n", new_mes, queue->head->message);
-	sem_post(&is_full);
 	sem_post(&global);
+	sem_post(&is_full);
 }
 
 
