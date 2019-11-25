@@ -81,9 +81,9 @@ int mymsgget(struct Queue* queue, char* buf, size_t bufsize) {
 	//sprintf(buf, "%s", "");
 	strncpy(buf, res->message, bufsize);
 
-	if(queue->head != NULL)
-	printf("extracted : %s, new head is %s\n", buf, queue->head->message);
-	else { printf("extracted : %s, new head is null\n", buf);}
+//	if(queue->head != NULL)
+//	printf("extracted : %s, new head is %s\n", buf, queue->head->message);
+//	else { printf("extracted : %s, new head is null\n", buf);}
 	sem_post(&global);
 	sem_post(&is_empty);
 }
@@ -113,22 +113,22 @@ int mymsgput(struct Queue* queue, char* msg) {
 	sprintf(new_mes->message, "%s", "");
 	strncat(new_mes->message, msg, 80);
 
-	printf("new head\n");
+//	printf("new head\n");
 	tmp = queue->head;
 	queue->head = new_mes;
 	if(tmp != NULL) {
-		printf("not first\n");
+//		printf("not first\n");
 		(queue->head)->next = tmp;
 		tmp->prev = queue->head;
 	}
 	//else{queue->head = tmp;}
 
-	printf("add tail\n");
+//	printf("add tail\n");
 	if(tmp == NULL) {
 		queue->tail = new_mes;
 	}
 
-	printf("added str %s = %s\n", new_mes, queue->head->message);
+//	printf("added str %s = %s\n", new_mes, queue->head->message);
 	sem_post(&global);
 	sem_post(&is_full);
 }

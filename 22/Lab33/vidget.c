@@ -1,74 +1,65 @@
 #include <unistd.h>
 #include <stdlib.h>
 #include <sys/types.h>
-#include <sys/ipc.h>
-#include <sys/sem.h>
+#include<pthread.h>
 #include <stdio.h>
-#include <signal.h>
-#include"elements.h"
+#include <semaphore.h>
 
-int sem;
 
-void end() {
-	 if(semctl(sem, 0 ,IPC_RMID, 0) == -1) {
-                perror("semctl");
-                exit(5);
+sem_t sem_a, sem_b, sem_c, sem_mod;
+
+void* make_a(void* arg) {
+	while(1) {
+                sleep(1);
+                sem_post(&sem_a);
+                printf("detail A created\n");
         }
-	kill(0, SIGTERM);
-	exit(0);
+
+}
+void* make_b(void* arg) {
+	while(1) {
+		sleep(2);
+		sem_post(&sem_b);
+		printf("detail B created\n");
+	}
+}
+void* make_c(void* arg) {
+	while(1) {
+                sleep(3);
+                sem_post(&sem_c);
+                printf("detail C created\n");
+        }
+}
+void* make_mod(void* arg) {
+	while(1) {
+                sem_wait(&sem_a);
+		sem_wait(&sem_b);
+                sem_post(&sem_mod);
+                printf("module(ab) created\n");
+        }
 }
 
-enum timings {a = 2, b, c};
 
 int main(int argc, char* argv[]) {
-
-	static struct sembuf op[2] = {{C_NUM, -1, SEM_UNDO}, {MODULS_NUM, -1, SEM_UNDO}};
-
-	
-	if((sem = semget(IPC_PRIVATE, 4, IPC_CREAT | 0640))==-1)  {
-        	perror(argv[0]);
-        	exit(1);
-  	  }
-	
-	sigset(SIGINT, end);
-	char sem_str[256];
-	sprintf(sem_str, "%d", sem);
-	char line[256];
-
-
-	if(fork() == 0) {
-		sprintf(line, "%d", a);
-		execlp("./detail", "detail", "a", line, sem_str, (char*)(0));
-		perror("A forking fail");
-		exit(2);
-	}
-	 if(fork() == 0) {
-		sprintf(line, "%d", b);
-                execlp("./detail", "detail", "b", line, sem_str, (char*)(0));
-                perror("B forking fail");
-                exit(2);
-        }
-	if(fork() == 0) {
-		sprintf(line, "%d", c);
-                execlp("./detail", "detail", "c", line, sem_str, (char*)(0));
-                perror("C forking fail");
-                exit(2);
-        }
-	if(fork() == 0) {
-                execlp("./modul", "modul", sem_str, (char*)(0));
-                perror("Module forking fail");
-                exit(2);
-        }
-
-	unsigned short buff[4];
-	
-//	for(i = 0; i < VIDGETS_NUM; i++) {
 	int count = 0;
+	pthread_t t1;    
+    	pthread_t t2;
+    	pthread_t t3;
+    	pthread_t t4;
+
+	sem_init(&sem_a, 0, 0);
+	sem_init(&sem_b, 0, 0);
+	sem_init(&sem_c, 0, 0);
+	sem_init(&sem_mod, 0, 0);
+
+	pthread_create( &t1, NULL, make_a, NULL);
+    	pthread_create( &t2, NULL, make_b, NULL);
+   	pthread_create( &t3, NULL, make_c, NULL);
+        pthread_create( &t4, NULL, make_mod, NULL);
+
 	while(1) {
-		if(semop(sem, op, 2) == -1) {
-			perror(argv[0]);
-			exit(3);
-		}
+		sem_wait(&sem_mod);
+		sem_wait(&sem_c);
 		count++;
 		printf("Do vidget with number=%d\n", count);
 	}

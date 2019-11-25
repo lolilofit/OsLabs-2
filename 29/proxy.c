@@ -13,12 +13,9 @@
 #include <netinet/tcp.h>
 #include<signal.h>
 
-#include <fcntl.h>
-#include <sys/file.h>
-
 #define MAX_HEADER_SIZE 2048
 #define MAX_BODY_SIZE 2048
-int FDS_SIZE = 200;
+#define FDS_SIZE 200
 
 
 
@@ -186,28 +183,10 @@ struct Cache* init_cache(struct Cache* cache) {
 
 struct CacheUnit* add_cache_unit(struct Cache* cache, int id, char* url, int url_size) {
 	printf("add unit to cache\n");
-        struct CacheUnit* cache_unit = NULL;
-//        struct CacheUnit* tail = cache->units_head->next;
-//        cache_unit->next = tail;
-//        cache->units_head->next = cache_unit;
-	struct CacheUnit* cur =  cache->units_head->next;
-	if(cur == NULL) {
-                        cache_unit = init_cache_unit(id, url, url_size);
-                        cache->units_head->next = cache_unit;
-                        return cache_unit;
-	}
-
-	while(cur != NULL) {
-		if(strcmp(cur->url, url) == 0)
-			return NULL;
-		if(cur->next == NULL) {
-			cache_unit = init_cache_unit(id, url, url_size);
-			cur->next = cache_unit;
-			return cache_unit;
-		}
-		cur = cur->next;
-	}
-
+        struct CacheUnit* cache_unit = init_cache_unit(id, url, url_size);
+        struct CacheUnit* tail = cache->units_head->next;
+        cache_unit->next = tail;
+        cache->units_head->next = cache_unit;
 	printf("add unit to cache end\n");
 	return cache_unit;
 }
@@ -328,6 +307,7 @@ void parse_request(char* request, struct HttpParams* response, struct HttpAnswer
 
 	ptr = strtok(request, "\r\n");
 
+//	printf("start parsing\n\n");
 	while(ptr != NULL) {
 	//	printf("line is: %s\n", ptr);
 		struct List* el;
@@ -341,10 +321,7 @@ void parse_request(char* request, struct HttpParams* response, struct HttpAnswer
 			if(strcmp("Transfer-Encoding: chunked", ptr) == 0)
 				remote_answer->chunked=1;
 		}
-		if(remote_answer != NULL)
-			ptr = NULL;
-		else
-			ptr = strtok(NULL, "\r\n");
+		ptr = strtok(NULL, "\r\n");
 	}
 
 	head = head->next;
@@ -360,18 +337,16 @@ void parse_request(char* request, struct HttpParams* response, struct HttpAnswer
 		else {
 			if(response != NULL)
 				pars_line(head->str, response, 0);
-		//	 if(remote_answer != NULL)
-                //                pars_answer_line(head->str, remote_answer, 0);
+			 if(remote_answer != NULL)
+                                pars_answer_line(head->str, remote_answer, 0);
 		}
 		cur = head;
 		head = head->next;
 		free(cur);
 	}
 
-	if(response != NULL) {
+	if(response != NULL)
 		pars_path(response);
-		printf("path is %s\n", response->path);
-	}
 }
 
 
@@ -396,27 +371,16 @@ int get_remote_socket(char* host, char* port) {
 		printf("can't create remote socket\n");
 		return -1;
 	}
-
 	sc_addr.sin_family = AF_INET;
         sc_addr.sin_addr.s_addr = ((struct in_addr*)((hp->h_addr_list)[0]))->s_addr;
 	printf("remote_adr is: %s\n", inet_ntoa(sc_addr.sin_addr));
 
 	sc_addr.sin_port = htons(remote_port);
-
 	bzero(&(sc_addr.sin_zero), 8);
         if((res = connect(sc, (struct sockaddr*)&sc_addr, sizeof(sc_addr))) < 0) {
 		printf("can't connect to the remote socket\n");
 		return -1;
 	}
-	int fileflags;
-        if (fileflags = fcntl(sc, F_GETFL, 0) == -1) {
-                perror("fcntl F_GETFL");
-                exit(1);
-        }
-        if (fcntl(sc, F_SETFL, fileflags | FNDELAY) == -1) {
-                perror("fcntl F_SETFL, FNDELAY");
-                exit(1);
-        }
 
 	return sc;
 }
@@ -424,7 +388,7 @@ int get_remote_socket(char* host, char* port) {
 
 void form_http_request(struct HttpParams* response, char* header) {
 	// response->protocol;
-	sprintf(header, "%s %s %s\r\nHost: %s\r\n\r\n", response->method, response->path, "HTTP/1.1", response->host);
+	sprintf(header, "%s %s %s\r\nHost: %s\r\n\r\n", response->method, response->path, "HTTP/1.0", response->host);
 //	printf("header: %s\n", header);
 }
 
@@ -471,7 +435,7 @@ int transfer_cached(struct CacheUnit* cache_unit, int client) {
 	printf("transfer to particular waiter\n");
 	 struct List* cur = cache_unit -> mes_head->next;
                 while(cur != NULL) {
-			printf("%s\n", cur->str); 
+//			printf("%s\n", cur->str); 
                        if(write(client, cur->str, strlen(cur->str)) < 0) {
                                 printf("can't write to remote host\n");
                                 return -1;
@@ -485,7 +449,6 @@ int transfer_cached(struct CacheUnit* cache_unit, int client) {
 
 int transfer_to_remote(struct ClientHostList* related, struct pollfd* fds, int nfd) {
 
-	printf("transfer to remote\n");
 	char buf[MAX_HEADER_SIZE + MAX_BODY_SIZE+1];
 	int remote_host, client;
 	client = related->client;
@@ -504,10 +467,8 @@ int transfer_to_remote(struct ClientHostList* related, struct pollfd* fds, int n
 
         struct HttpParams* param;
         param = (struct HttpParams*)malloc(sizeof(struct HttpParams));
-	char copy[readen];
-        strcpy(copy, buf);
-        parse_request(copy, param, NULL);
 
+        parse_request(buf, param, NULL);
 
 	//??sizes
 	char url[MAX_HEADER_SIZE+ 1] = "";
@@ -515,8 +476,8 @@ int transfer_to_remote(struct ClientHostList* related, struct pollfd* fds, int n
 		strncat(url, param->host, MAX_HEADER_SIZE/2);
 		strncat(url, param->path, MAX_HEADER_SIZE/2);
 	}
-	/*
 	struct CacheUnit* found = find_cache_by_url(cache, url);
+
 	printf("found end\n");
 	if((strcmp(param->method, "GET") == 0) || (strcmp(param->method, "HEAD") == 0)) {
 	if(found != NULL) {
@@ -547,7 +508,7 @@ int transfer_to_remote(struct ClientHostList* related, struct pollfd* fds, int n
 	else {
 		related->should_cache = 0;
 	}
-	*/
+
         remote_host = get_remote_socket(param->host, "");
         if(remote_host < 0) {
                 return -1;
@@ -560,8 +521,7 @@ int transfer_to_remote(struct ClientHostList* related, struct pollfd* fds, int n
 
         printf("send this: %s\n", send_this);
         if(write(remote_host, send_this, strlen(send_this)) < 0) {
-        //if(write(remote_host, buf, strlen(buf)) < 0) { 
-	       printf("can't write to remote host\n");
+                printf("can't write to remote host\n");
                 return -1;
         }
 	related->remote_host = remote_host;
@@ -611,112 +571,93 @@ int transfer_back(struct ClientHostList* related) {
 	if(readen == 0) { 
 		printf("\n nothing to read anymore\n");
 		return 1;
-	//	return 2;
 	}
+	//change for http 1.0
+	buf[7] = '0';
+	//printf("got:\n%s\n\n", buf);
 
         if(write(client, buf, strlen(buf)) < 0) {
                 printf("can't write to remote host\n");
-               	client_alive = 0;
-		 //return -1;
+                return -1;
         }
         struct HttpAnswer* ans;
         ans = (struct HttpAnswer*)malloc(sizeof(struct HttpAnswer));
         (ans->body)[0] = '\0';
 	ans->chunked = 0;
 	ans->content_lengh = -1;
-	//divide_body(buf, ans);
-        //try_read+=strlen(ans->body);
-        //parse_request(ans->header, NULL, ans);
-//	printf("readen now : %d of %d\n\n", try_read, ans->content_lengh);
-	char copy[readen];
-	strcpy(copy, buf);
-	parse_request(copy, NULL, ans);
-	//int mes_len =  ans->content_lengh;
-	int flag = 0, dec_number = 0;
+	divide_body(buf, ans);
 
-/*
-	//cache
+        try_read+=strlen(ans->body);
+        parse_request(ans->header, NULL, ans);
+//	printf("readen now : %d of %d\n\n", try_read, ans->content_lengh);
+	int mes_len =  ans->content_lengh, flag = 0, dec_number = 0;
+
 	if(related->should_cache == 1) {
 		if(atoi(ans->status) == 200) {
+			//copy buf??
 			printf("let's add to cache\n");
 			(cache->max_id)++;
 			cache_unit = add_cache_unit(cache, cache->max_id, related->url, strlen(related->url));
-			add_mes(cache_unit, buf);
+			//(cache_unit->waiting_now)[waiting_num - 1] = related->client;
 		}
 	}
-*/
-	printf("%s\n\n", buf);
 
-	int close_flag = 0;
-	while(1) {
-  //      while(try_read < mes_len) {
-		buf[0] = '\0';
-		printf("\n\ntry read\n\n");
+        while(try_read < mes_len) {
 		readen = read(remote_host, buf, MAX_HEADER_SIZE+MAX_BODY_SIZE);
 		if(readen < 0) {
                         printf("error reading from remote host-additional read\n");
-                        //return -1;
-			close_flag = 1;
-			break;
+                        return -1;
                 }
-		if(readen == 0) {
-			printf("haven't read anything\n");
-			break;
-		}
+		if(readen == 0)
+                        break;
                 buf[readen+1]='\0';
-//		if(cache_unit != NULL)
-//			add_mes(cache_unit, buf); ----
-		//try_read += readen;
+		if(cache_unit != NULL)
+			add_mes(cache_unit, buf);
+		try_read += readen;
 
 		if(client_alive == 1) {
-			if(write(client, buf, readen) < 0) {
+			if(write(client, buf, strlen(buf)) < 0) {
                 		printf("can't write to client\n");
         	        	client_alive = 0;
 				//what to return in the end
 	        	}
 		}
-
-                printf("again readen:\n\n%s", buf);
+                //printf("again readen:\n\n%s", buf);
         }
 
-/*
 	if(mes_len < 0) {
 		free(ans);
 		return 2;
 	}
-*/
-/*
-	printf("show cached\n");
-	if(cache_unit != NULL) {
+
+/*	printf("show cached\n");
 	struct List* t = cache_unit->mes_head;
 	while(t != NULL) {
 		printf("%s\n", t->str);
 		t=t->next;
 	}
-	}
-	printf("------------");
 */
-/*
 	if(cache_unit != NULL) {
 		cache_unit->is_downloading = 0;
 		transfer_to_waiters(cache_unit);
 	}
-*/
+
 	free(ans);
-	return 2;
+	return 0;
 }
 
 
 struct ClientHostList* remove_conn_info(struct pollfd* fds, int i, struct ClientHostList* prev, struct ClientHostList* related,  struct ClientHostList* last) {
+	//if(fds[i].fd >= 0)
+        //      close(fds[i].fd);
+        //fds[i].fd = -1;
 	printf("remove_conn_info\n");
-	printf("related cli %d, host %d, url %s\n", related->client, related->remote_host, related->url);
-        if(related != NULL && prev != NULL) {
-		prev->next = related->next;
-        	free(related->url);
-		free(related);
-		if(prev->next == NULL)
-			return prev;
-	}
+	printf("prev cli %d, host %d\n", prev->client, prev->remote_host);
+        prev->next = related->next;
+        free(related->url);
+	free(related);
+	if(prev->next == NULL)
+		return prev;
 	return last;
 }
 
@@ -737,18 +678,9 @@ int evacuate_fds(struct pollfd* fds) {
 
 void cleanup(int sig) {
 	dealloc_cache(cache);
+	
 }
 
-struct pollfd* resize_fds( struct pollfd* fds) {
-	struct pollfd* new_fds;
-	FDS_SIZE = FDS_SIZE + 200;
-	new_fds = realloc(fds, FDS_SIZE);
-	if(new_fds == NULL) {
-		printf("can't realloc clients fds\n");
-		return fds;
-	}
-	return new_fds;
-}
 
 int main(int argc, char* argv[]) {
 	cache = init_cache(cache);
@@ -757,6 +689,8 @@ int main(int argc, char* argv[]) {
 	int i, sc, client, remote_host, ret, res;
 	struct sockaddr_in sc_addr;
 	int addrlen = sizeof(sc_addr);
+
+//	sc = socket(AF_INET, SOCK_STREAM | SOCK_CLOEXC, 0);
 	sc = socket(AF_INET, SOCK_STREAM, 0);
 	if(sc == -1) {
 		close(sc);
@@ -787,8 +721,7 @@ int main(int argc, char* argv[]) {
 		return -1;
 	}
 
-	struct pollfd* fds;
-	fds = (struct pollfd*)malloc(sizeof(struct pollfd)*FDS_SIZE);
+	struct pollfd fds[FDS_SIZE];
 	memset(fds, -1, sizeof(fds));
 	fds[0].fd = sc;
   	fds[0].events = POLLIN;
@@ -804,9 +737,10 @@ int main(int argc, char* argv[]) {
 
 	while(1) {
 		ret = poll(fds, nfd, timeout);
+		printf("poll!!\n");
 		if(ret < 0) {
 			printf("poll failed\n");
-			break;
+			exit(-1);
 		}
 		if(ret == 0) {
 			printf("exit after timeout\n");
@@ -823,10 +757,10 @@ int main(int argc, char* argv[]) {
 			}
 			if(fds[i].fd == sc) {
 				client = 0;
-				while(client != -1) { 
+				//while(client != -1) { 
 					//printf("try accept self=%d, socket-to-acc=%d\n", sc, fds[i].fd);
 					if((client = accept(fds[i].fd, (struct sockaddr*)&sc_addr, (socklen_t*)&addrlen)) < 0) {
-                				printf("error accept\n");
+                				//printf("error accept\n");
                 				continue;
 			        	}
 					printf("Client %d accepted\n\n", client);
@@ -838,7 +772,6 @@ int main(int argc, char* argv[]) {
 						nfd = evacuate_fds(fds);
 					if(nfd >= FDS_SIZE) {
 						printf("clients overflow\n");
-						fds = resize_fds(fds);
 					}
 
 					struct ClientHostList* new_client;
@@ -846,7 +779,6 @@ int main(int argc, char* argv[]) {
 					new_client->client = client;
 					new_client->remote_host = -1;
 					new_client->next=NULL;
-					new_client->url = NULL;
 					last->next = new_client;
 					last = new_client;
 
@@ -854,7 +786,7 @@ int main(int argc, char* argv[]) {
 						printf("fd: %d\n", fds[j].fd);
 					}
 					printf("accepting sucess %d, nfd=%d\n", client, nfd);
-				}
+				//}
 			}
 			else {
 					if(head == NULL)
@@ -863,19 +795,34 @@ int main(int argc, char* argv[]) {
 					if(prev == NULL) {
 						printf("prev is null\n");
 						fds[i].fd = -1;
-						continue;
 					}
 					struct ClientHostList* related = prev->next;
 
 					if(related->client == fds[i].fd) {
-						printf("message came for %d (to host), and host is %d, client %d\n\n", fds[i].fd, related->remote_host, related->client);
-						//if(related->remote_host > 0) {
-                                                //}
-						//else {
+						 printf("message came for %d (to host), and host is %d, client %d\n\n", fds[i].fd, related->remote_host, related->client);
+						if(related->remote_host > 0) {
+							//http 1.0 should close the conn after first 
+                                                        //char buf[1];
+                                                        //if ((recv(related->remote_host, buf, sizeof(buf), MSG_PEEK | MSG_DONTWAIT)) == -1) {
+                                                        //        printf("should close\n");
+								//close(fds[i].fd);
+							//	fds[i].fd = -1;
+								/*for(j = 0; j < nfd; j++) {
+									if(fds[j].fd == related->remote_host) {
+										close(fds[j].fd);
+										fds[j].fd=-1;
+									}
+								}
+								*/
+                                                        //	last = remove_conn_info(fds, i, prev, related, last);
+							//}
+                                                }
+						else {
+							//maybe incr nfd in func
 							if((ret = transfer_to_remote(related, fds, nfd)) == -1) {
-								printf("close client\n");
 								close(related->client);
 								fds[i].fd = -1;
+								// send bad responce
 								if(related->remote_host > 0) {
 									nfd++;
 									for(j = 0; j < nfd; j++) {
@@ -888,38 +835,37 @@ int main(int argc, char* argv[]) {
 								last = remove_conn_info(fds, i, prev, related, last);
 							}
 							if(ret == 1) {
-								//printf("\n close the conn\n");
-								//close(related->client);
-								//fds[i].fd = -1;
-								//last = remove_conn_info(fds, i, prev, related, last);
+								printf("\n close the conn\n");
+								close(related->client);
+								fds[i].fd = -1;
+								last = remove_conn_info(fds, i, prev, related, last);
 							}
 							if(ret == 2) {
-								//fds[i].fd = -1;
-                                                                //last = remove_conn_info(fds, i, prev, related, last);
+								fds[i].fd = -1;
+                                                                last = remove_conn_info(fds, i, prev, related, last);
 							}
 							if(ret == 0) {
 								//we added host
 								nfd++;
 							}
-						//}
+						}
 					}
 					else {
-						printf("message came for %d (back to cli)\n\n", fds[i].fd);
+						  printf("message came for %d (back to cli)\n\n", fds[i].fd);
 						if(related->remote_host == fds[i].fd) {
-							ret = transfer_back(related);
-							if(ret != 2) {
+							if(transfer_back(related) != 2) {
+
 							printf("transfer back succ, socket %d\n", fds[i].fd);
-							//close(fds[i].fd);
+							close(fds[i].fd);
 							fds[i].fd=-1;
-							/*
 							for(j = 0; j < nfd; j++) {
                                                                         if(fds[j].fd == related->client) {
                                                                                 close(fds[j].fd);
                                                                                 fds[j].fd=-1;
                                                                         }
                                                         }
-							*/
-							//last = remove_conn_info(fds, i, prev, related, last);
+
+							last = remove_conn_info(fds, i, prev, related, last);
 							printf("DELETED\n");
 							}
 						}

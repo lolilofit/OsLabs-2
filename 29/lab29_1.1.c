@@ -13,9 +13,6 @@
 #include <netinet/tcp.h>
 #include<signal.h>
 
-#include <fcntl.h>
-#include <sys/file.h>
-
 #define MAX_HEADER_SIZE 2048
 #define MAX_BODY_SIZE 2048
 int FDS_SIZE = 200;
@@ -341,9 +338,9 @@ void parse_request(char* request, struct HttpParams* response, struct HttpAnswer
 			if(strcmp("Transfer-Encoding: chunked", ptr) == 0)
 				remote_answer->chunked=1;
 		}
-		if(remote_answer != NULL)
-			ptr = NULL;
-		else
+//		if(remote_answer != NULL)
+//			ptr = NULL;
+//		else
 			ptr = strtok(NULL, "\r\n");
 	}
 
@@ -360,8 +357,8 @@ void parse_request(char* request, struct HttpParams* response, struct HttpAnswer
 		else {
 			if(response != NULL)
 				pars_line(head->str, response, 0);
-		//	 if(remote_answer != NULL)
-                //                pars_answer_line(head->str, remote_answer, 0);
+			 if(remote_answer != NULL)
+                                pars_answer_line(head->str, remote_answer, 0);
 		}
 		cur = head;
 		head = head->next;
@@ -396,27 +393,16 @@ int get_remote_socket(char* host, char* port) {
 		printf("can't create remote socket\n");
 		return -1;
 	}
-
 	sc_addr.sin_family = AF_INET;
         sc_addr.sin_addr.s_addr = ((struct in_addr*)((hp->h_addr_list)[0]))->s_addr;
 	printf("remote_adr is: %s\n", inet_ntoa(sc_addr.sin_addr));
 
 	sc_addr.sin_port = htons(remote_port);
-
 	bzero(&(sc_addr.sin_zero), 8);
         if((res = connect(sc, (struct sockaddr*)&sc_addr, sizeof(sc_addr))) < 0) {
 		printf("can't connect to the remote socket\n");
 		return -1;
 	}
-	int fileflags;
-        if (fileflags = fcntl(sc, F_GETFL, 0) == -1) {
-                perror("fcntl F_GETFL");
-                exit(1);
-        }
-        if (fcntl(sc, F_SETFL, fileflags | FNDELAY) == -1) {
-                perror("fcntl F_SETFL, FNDELAY");
-                exit(1);
-        }
 
 	return sc;
 }
@@ -553,14 +539,14 @@ int transfer_to_remote(struct ClientHostList* related, struct pollfd* fds, int n
                 return -1;
         }
 
-        char* send_this;
-        send_this = (char*)malloc(sizeof(char)*3*MAX_HEADER_SIZE);
-        printf("form hhtp request\n\n");
-        form_http_request(param, send_this);
+//        char* send_this;
+//        send_this = (char*)malloc(sizeof(char)*3*MAX_HEADER_SIZE);
+//        printf("form hhtp request\n\n");
+//        form_http_request(param, send_this);
 
-        printf("send this: %s\n", send_this);
-        if(write(remote_host, send_this, strlen(send_this)) < 0) {
-        //if(write(remote_host, buf, strlen(buf)) < 0) { 
+        printf("send this: %s\n", buf);
+        //if(write(remote_host, send_this, strlen(send_this)) < 0) {
+        if(write(remote_host, buf, strlen(buf)) < 0) { 
 	       printf("can't write to remote host\n");
                 return -1;
         }
@@ -624,14 +610,14 @@ int transfer_back(struct ClientHostList* related) {
         (ans->body)[0] = '\0';
 	ans->chunked = 0;
 	ans->content_lengh = -1;
-	//divide_body(buf, ans);
-        //try_read+=strlen(ans->body);
-        //parse_request(ans->header, NULL, ans);
+	divide_body(buf, ans);
+        try_read+=strlen(ans->body);
+        parse_request(ans->header, NULL, ans);
 //	printf("readen now : %d of %d\n\n", try_read, ans->content_lengh);
-	char copy[readen];
-	strcpy(copy, buf);
-	parse_request(copy, NULL, ans);
-	//int mes_len =  ans->content_lengh;
+//	char copy[readen];
+//	strcpy(copy, buf);
+//	parse_request(copy, NULL, ans);
+	int mes_len =  ans->content_lengh;
 	int flag = 0, dec_number = 0;
 
 /*
@@ -647,11 +633,24 @@ int transfer_back(struct ClientHostList* related) {
 */
 	printf("%s\n\n", buf);
 
+	mes_len =  ans->content_lengh;
+	int dec_number = 0;
+	if((ans->chunked) == 1) {
+	char number[1024] = "";
+		sscanf(ans->body, "%s\n", number);
+		dec_number = hexadecimalToDecimal(number);
+		printf("CHUNKED, first time : %s\n", number);
+		if(strcmp(number, "") == 0) {
+			flag = 1;
+		}
+		else {
+			mes_len = dec_number;
+		}
+	}
+
 	int close_flag = 0;
-	while(1) {
-  //      while(try_read < mes_len) {
-		buf[0] = '\0';
-		printf("\n\ntry read\n\n");
+//	while(1) {
+        while(flag || try_read < mes_len) {
 		readen = read(remote_host, buf, MAX_HEADER_SIZE+MAX_BODY_SIZE);
 		if(readen < 0) {
                         printf("error reading from remote host-additional read\n");
@@ -666,18 +665,20 @@ int transfer_back(struct ClientHostList* related) {
                 buf[readen+1]='\0';
 //		if(cache_unit != NULL)
 //			add_mes(cache_unit, buf); ----
-		//try_read += readen;
+		try_read += readen;
 
 		if(client_alive == 1) {
-			if(write(client, buf, readen) < 0) {
+			if(write(client, buf, strlen(buf)) < 0) {
                 		printf("can't write to client\n");
         	        	client_alive = 0;
 				//what to return in the end
 	        	}
 		}
 
-                printf("again readen:\n\n%s", buf);
+
+//                printf("again readen:\n\n%s", buf);
         }
+	printf("\n end cycle \n");
 
 /*
 	if(mes_len < 0) {
@@ -703,11 +704,16 @@ int transfer_back(struct ClientHostList* related) {
 	}
 */
 	free(ans);
+//	if(close_flag == 1)
+//		return 0;
 	return 2;
 }
 
 
 struct ClientHostList* remove_conn_info(struct pollfd* fds, int i, struct ClientHostList* prev, struct ClientHostList* related,  struct ClientHostList* last) {
+	//if(fds[i].fd >= 0)
+        //      close(fds[i].fd);
+        //fds[i].fd = -1;
 	printf("remove_conn_info\n");
 	printf("related cli %d, host %d, url %s\n", related->client, related->remote_host, related->url);
         if(related != NULL && prev != NULL) {
@@ -757,6 +763,8 @@ int main(int argc, char* argv[]) {
 	int i, sc, client, remote_host, ret, res;
 	struct sockaddr_in sc_addr;
 	int addrlen = sizeof(sc_addr);
+
+//	sc = socket(AF_INET, SOCK_STREAM | SOCK_CLOEXC, 0);
 	sc = socket(AF_INET, SOCK_STREAM, 0);
 	if(sc == -1) {
 		close(sc);
@@ -863,7 +871,6 @@ int main(int argc, char* argv[]) {
 					if(prev == NULL) {
 						printf("prev is null\n");
 						fds[i].fd = -1;
-						continue;
 					}
 					struct ClientHostList* related = prev->next;
 
@@ -872,10 +879,12 @@ int main(int argc, char* argv[]) {
 						//if(related->remote_host > 0) {
                                                 //}
 						//else {
+							//maybe incr nfd in func
 							if((ret = transfer_to_remote(related, fds, nfd)) == -1) {
 								printf("close client\n");
 								close(related->client);
 								fds[i].fd = -1;
+								// send bad responce
 								if(related->remote_host > 0) {
 									nfd++;
 									for(j = 0; j < nfd; j++) {
@@ -909,7 +918,7 @@ int main(int argc, char* argv[]) {
 							ret = transfer_back(related);
 							if(ret != 2) {
 							printf("transfer back succ, socket %d\n", fds[i].fd);
-							//close(fds[i].fd);
+							close(fds[i].fd);
 							fds[i].fd=-1;
 							/*
 							for(j = 0; j < nfd; j++) {
