@@ -13,11 +13,12 @@
 #include <sys/ioctl.h>
 #include <netinet/tcp.h>
 #include<signal.h>
+
 #include <fcntl.h>
 #include <sys/file.h>
 
-#define MAX_HEADER_SIZE 2048
-#define MAX_BODY_SIZE 2048
+#define MAX_HEADER_SIZE 6000
+#define MAX_BODY_SIZE 6000
 int FDS_SIZE = 200;
 extern int errno;
 
@@ -53,10 +54,6 @@ struct CacheUnit {
 	struct List* mes_head;
 	struct List* last_mes;
 	char* url;
-	int* waiting_now;
-	int waiting_num;
-	int is_downloading;
-	int id;
 	struct CacheUnit* next;
 };
 
@@ -85,7 +82,6 @@ struct CacheUnit* find_cache_by_url(struct Cache* cache, char* url) {
 	printf("find in cache by url : %s, size %d\n", url, strlen(url));
 	struct CacheUnit* cur = cache->units_head->next;
         while(cur != NULL) {
-		printf("compare %s and %s sizes: %d, %d\n", url , cur->url, strlen(url), strlen(cur->url));
                 if(strcmp(url, cur->url) == 0) {
 			printf("FOUND in cache\n");
             		return cur;
@@ -97,28 +93,17 @@ struct CacheUnit* find_cache_by_url(struct Cache* cache, char* url) {
 }
 
 
-struct CacheUnit* init_cache_unit(int id, char* url, int url_size) {
+struct CacheUnit* init_cache_unit(int id, char* url) {
  	struct CacheUnit* cache_unit;
 	cache_unit = (struct CacheUnit*)malloc(sizeof(struct CacheUnit));
-        cache_unit->id = id;
 	cache_unit->next = NULL;
-        cache_unit->waiting_num = 0;
-	cache_unit->waiting_now = (int*)malloc(sizeof(int)*FDS_SIZE);
-        cache_unit->is_downloading = 0;
 	cache_unit->mes_head = (struct List*)malloc(sizeof(struct List));
 	cache_unit->mes_head->next=NULL;
 	cache_unit->last_mes = cache_unit->mes_head;
 	(cache_unit->mes_head->str)[0] = '\0';
 	cache_unit->mes_head->len = 0;
 
-	if(url_size != 0) {
-		 //cache_unit->url = (char*)malloc(sizeof(char)*url_size);
-		 //strncpy(cache_unit->url, url, url_size);
-		cache_unit->url = url;
-	}
-	else {
-		 cache_unit->url=NULL;
-	}
+	cache_unit->url = url;
 	return cache_unit;
 }
 
@@ -128,16 +113,18 @@ struct CacheUnit* init_cache_unit(int id, char* url, int url_size) {
 struct Cache* init_cache(struct Cache* cache) {
 	cache = (struct Cache*)malloc(sizeof(struct Cache));
 	cache->max_id = 0;
-	cache->units_head = init_cache_unit(0, "", 0);
+	char* head_mes = (char*)malloc(sizeof(char));
+	head_mes[0] = '\0';
+	cache->units_head = init_cache_unit(0, head_mes);
 	return cache;
 }
 
 
-struct CacheUnit* add_cache_unit(struct Cache* cache, int id, char* url, int url_size) {
+struct CacheUnit* add_cache_unit(struct Cache* cache, int id, char* url) {
         struct CacheUnit* cache_unit = NULL;
 	struct CacheUnit* cur =  cache->units_head->next;
 	if(cur == NULL) {
-                        cache_unit = init_cache_unit(id, url, url_size);
+                        cache_unit = init_cache_unit(id, url);
                         cache->units_head->next = cache_unit;
                         return cache_unit;
 	}
@@ -146,7 +133,7 @@ struct CacheUnit* add_cache_unit(struct Cache* cache, int id, char* url, int url
 		if(strcmp(cur->url, url) == 0)
 			return NULL;
 		if(cur->next == NULL) {
-			cache_unit = init_cache_unit(id, url, url_size);
+			cache_unit = init_cache_unit(id, url);
 			cur->next = cache_unit;
 			return cache_unit;
 		}
@@ -166,20 +153,10 @@ void dealloc_cache(struct Cache* cache) {
 			cur_list=cur_list->next;
 		}
 		free(unit->url);
-		free(unit->waiting_now);
 		prev = unit;
 		unit = unit->next;
 		free(prev);
 	}
-}
-
-int add_waiting(struct CacheUnit* cache_unit, int client) {
-	printf("add waiting\n");
-	if(cache_unit == NULL)
-		return -1;
-	cache_unit->waiting_now[cache_unit->waiting_num] = client;
-	(cache_unit->waiting_num)++;
-	return 0;
 }
 
 struct Cache* cache;
@@ -281,16 +258,59 @@ void parse_request(char* request, struct HttpParams* response, struct HttpAnswer
 	}
 }
 
+struct Host{
+	char host[MAX_HEADER_SIZE+1];
+	int port;
+};
+/*
+struct Host* get_port_host(char* host) {
+	 char* clear_host;
+	 clear_host = (char*)malloc(sizeof(char)*(MAX_HEADER_SIZE+1));
+	 clear_host[0]= '\0';
+	 char* ptr;
+	 ptr = strtok(host, ":");
+	 strcpy(clear_host, ptr);
+	 struct Host* ret;
+	 ret = ( struct Host*)malloc(sizeof( struct Host));
+	 ret->host = clear_host;
+	 
+	 ret->port = 80;
+	 ptr = strtok(host, ":");
+	 if(ptr != NULL) {
+		ret->port = atoi(ptr);
+	 }
+	return ret;
+}
+*/
+int divide_host(char* response, struct Host* host) {
+        char *tmp;
+        char port[MAX_HEADER_SIZE+1];
+
+        tmp = strstr(response, ":");
+        if(tmp != NULL){
+                strcpy(port, tmp + strlen(":"));
+                strncpy(host->host, response, (tmp-response));
+                (host->host)[tmp-response] = '\0';
+                host->port = atoi(port);
+        }
+        else {
+                strcpy(host->host, response);
+                host->port = 80;
+        }
+        return 0;
+}
 
 
 int get_remote_socket(char* host, char* port) {
 	int remote_port = 80, sc, res;
 	struct sockaddr_in sc_addr;
 
-	if(strlen(port) > 0)
-		remote_port = atoi(port);
+	//struct Host* clear_host = get_port_host(host);
+	struct Host clear_host;
+	divide_host(host, &clear_host);
+
 	struct hostent *hp;
-	hp = gethostbyname(host);
+	hp = gethostbyname(clear_host.host);
 	if(hp == NULL) {
 		printf("wrong url\n");
 		return -1;
@@ -305,16 +325,17 @@ int get_remote_socket(char* host, char* port) {
 	sc_addr.sin_family = AF_INET;
         sc_addr.sin_addr.s_addr = ((struct in_addr*)((hp->h_addr_list)[0]))->s_addr;
 	printf("remote_adr is: %s\n", inet_ntoa(sc_addr.sin_addr));
-	sc_addr.sin_port = htons(remote_port);
+
+	sc_addr.sin_port = htons(clear_host.port);
 
 	bzero(&(sc_addr.sin_zero), 8);
         if((res = connect(sc, (struct sockaddr*)&sc_addr, sizeof(sc_addr))) < 0) {
 		printf("can't connect to the remote socket\n");
 		return -1;
 	}
-        struct timeval tv;
-        tv.tv_sec = 5;
-	tv.tv_usec = 0;
+	struct timeval tv;
+        tv.tv_sec = 1;
+        tv.tv_usec = 0;
         setsockopt(sc, SOL_SOCKET, SO_RCVTIMEO,(struct timeval *)&tv,sizeof(struct timeval));
 	return sc;
 }
@@ -333,28 +354,6 @@ struct ClientHostList* find_related(struct ClientHostList* head, int find_him) {
 	return NULL;
 }
 
-int transfer_to_waiters(struct CacheUnit* cache_unit) {
-	printf("transfer to waiters\n");
-	if(cache_unit == NULL)
-		return -1;
-	if(cache_unit->waiting_now == NULL)
-		return -1;
-
-	int i, client;
-	for(i = 0; i < cache_unit->waiting_num; i++) {
-		client = (cache_unit->waiting_now)[i];
-		struct List* cur = cache_unit -> mes_head;
-		while(cur != NULL) {
-			if(write(client, cur->str, cur->len) < 0) {
-                       		printf("can't write to waiting client\n");
-                        	return -1;
-                	}
-		}
-		close(client);
-	}
-	(cache_unit->waiting_num) = 0;
-	return 0;
-}
 
 int transfer_cached(struct CacheUnit* cache_unit, int client) {
 	printf("transfer to particular waiter\n");
@@ -371,19 +370,14 @@ int transfer_cached(struct CacheUnit* cache_unit, int client) {
 }
 
 
-void form_http_request(struct HttpParams* response, char* header) {
-	// response->protocol;
-	sprintf(header, "%s %s %s\r\nHost: %s\r\n\r\n", response->method, response->path, "HTTP/1.1", response->host);
-//	printf("header: %s\n", header);
-}
-
 int transfer_to_remote(struct ClientHostList* related, struct pollfd* fds, int nfd) {
 
 	char buf[MAX_HEADER_SIZE + MAX_BODY_SIZE+1];
 	buf[0] = '\0';
 	int remote_host, client;
 	client = related->client;
-	int readen = recv(client, buf, 2048, 0);
+	int readen = 0;
+	readen = recv(client, buf, 2048, 0);
         if(readen < 0) {
                 printf("error reading\n");
                 return -1;
@@ -400,57 +394,44 @@ int transfer_to_remote(struct ClientHostList* related, struct pollfd* fds, int n
 	copy[readen] = '\0';
 	parse_request(copy, param, NULL);
 
-	char url[MAX_HEADER_SIZE+ 1] = "";
+	char* url;
+	url = (char*)malloc(sizeof(char)*readen);
+	url[0] = '\0';
 	if(param->path != NULL && param->host != NULL) {
-		strncat(url, param->host, MAX_HEADER_SIZE/2);
-		strncat(url, param->path, MAX_HEADER_SIZE/2);
+		strncat(url, param->host, readen);
+		strncat(url, param->path, readen);
 	}
 	struct CacheUnit* found = find_cache_by_url(cache, url);
 	printf("found end\n");
 
 	if((strcmp(param->method, "GET") == 0) || (strcmp(param->method, "HEAD") == 0)) {
 	if(found != NULL) {
-		if(found->is_downloading == 0) {
-			printf("it's in cache and downloaded, transfer to %d\n", related->client);
-			if(transfer_cached(found, related->client) < 0)
-				return -1;
-			return 1;
-		}
-		else {
-			printf("in cache and not downloaded\n");
-			if(add_waiting(found, related->client) < 0)
-				return -1;
-			return 2;
-		}
+		printf("it's in cache and downloaded, transfer to %d\n", related->client);
+		if(transfer_cached(found, related->client) < 0)
+			return -1;
+		return 1;
 	}
 	else {
 		printf("created unit will be added to cache (probably)\n");
 		related->should_cache = 1;
-		related->url = (char*)malloc(sizeof(char)*(strlen(url)+1));
+		related->url = (char*)malloc(sizeof(char)*readen);
 		(related->url)[0] = '\0';
-		strcpy(related->url, url);
+		strncpy(related->url, url, readen);
 	}
 	}
 	else {
 		related->should_cache = 0;
 	}
+	free(url);
 
 	remote_host = get_remote_socket(param->host, "");
 	if(remote_host < 0) {
              	return -1;
         }
 
-
-	char* send_this;
-        send_this = (char*)malloc(sizeof(char)*3*MAX_HEADER_SIZE);
-        printf("form hhtp request\n\n");
-        form_http_request(param, send_this);
-
-
 	printf("Send this: %s\n", buf);
-	//if(write(remote_host, buf, readen) < 0) {
-	if(write(remote_host, send_this, strlen(send_this)) < 0) {
-	        printf("can't write to remote host\n");
+	if(write(remote_host, buf, readen) < 0) {
+	       printf("can't write to remote host\n");
                 return -1;
         }
 	related->remote_host = remote_host;
@@ -505,7 +486,7 @@ int transfer_back(struct ClientHostList* related) {
 		if(atoi(ans->status) == 200) {
 			printf("let's add to cache\n");
 			(cache->max_id)++;
-			related->cache_unit = add_cache_unit(cache, cache->max_id, related->url, strlen(related->url));
+			related->cache_unit = add_cache_unit(cache, cache->max_id, related->url);
 			add_mes(related->cache_unit, buf, readen);
 		}
 		}
@@ -515,12 +496,10 @@ int transfer_back(struct ClientHostList* related) {
 	while(1) {
 		buf[0] = '\0';
 		readen = read(remote_host, buf, MAX_HEADER_SIZE+MAX_BODY_SIZE);
-		//if(errno == EAGAIN || errno == EWOULDBLOCK)
-                //	return 1;
 		if(readen < 0) {
-			if(errno == EWOULDBLOCK)
-				break;
-                        printf("error reading from remote host-additional read, remote_host %d\n", remote_host);
+                         if(errno == EWOULDBLOCK)
+                                break;
+			printf("error reading from remote host-additional read, remote_host %d\n", remote_host);
 			return 1;
                 }
 		if(readen == 0) {
@@ -539,10 +518,6 @@ int transfer_back(struct ClientHostList* related) {
 
         }
 
-	if(related->cache_unit != NULL) {
-		related->cache_unit->is_downloading = 0;
-		//transfer_to_waiters(related->cache_unit);
-	}
 	return 1;
 }
 
@@ -550,7 +525,8 @@ int transfer_back(struct ClientHostList* related) {
 struct ClientHostList* remove_conn_info(struct pollfd* fds, int i, struct ClientHostList* prev, struct ClientHostList* related,  struct ClientHostList* last) {
         if(related != NULL && prev != NULL) {
 		prev->next = related->next;
-        	//free(related->url);
+		if(related->cache_unit == NULL)
+			free(related->url);
 		free(related);
 		if(prev->next == NULL)
 			return prev;
@@ -584,7 +560,10 @@ struct pollfd* resize_fds( struct pollfd* fds) {
 	return new_fds;
 }
 
+
+
 int main(int argc, char* argv[]) {
+
 	cache = init_cache(cache);
 
 	int i, sc, client, remote_host, ret, res;
@@ -601,11 +580,12 @@ int main(int argc, char* argv[]) {
         	printf("setsockopt error");
         	exit(-1);
     	}
-	int on = 1;
-	if(ioctl(sc, FIONBIO, (char *)&on) < 0) {
-		printf("can't make nonblocking");
-		exit(-1);
-	}
+	fcntl(sc, F_SETFL, O_NONBLOCK);
+//	int on = 1;
+//	if(ioctl(sc, FIONBIO, (char *)&on) < 0) {
+//		printf("can't make nonblocking");
+//		exit(-1);
+//	}
 
 	sc_addr.sin_family = AF_INET;
         sc_addr.sin_addr.s_addr = htonl(INADDR_ANY);
@@ -726,7 +706,7 @@ int main(int argc, char* argv[]) {
 						if(related->remote_host == fds[i].fd) {
 							ret = transfer_back(related);
 							if(ret != 2) {
-							//close(fds[i].fd);
+							close(fds[i].fd);
 							fds[i].fd=-1;
 							related->remote_host = -1;
 							printf("host conn deleted\n");
