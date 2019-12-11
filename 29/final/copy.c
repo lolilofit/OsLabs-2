@@ -47,12 +47,16 @@ struct ListInt {
 	struct ListInt* next;
 	struct CacheUnit* cache_unit;
 	struct ListInt* prev;
+	int is_first;
 };
 
 struct ClientHostList {
 	int client;
 	struct ListInt* hosts;
 	struct ClientHostList* next;
+	int is_cli_alive;
+	int count_opened;
+	int count_downloaded;
 };
 
 
@@ -60,6 +64,7 @@ struct CacheUnit {
 	struct List* mes_head;
 	struct List* last_mes;
 	char* url;
+	int is_downloaded;
 	struct CacheUnit* next;
 };
 
@@ -71,6 +76,7 @@ struct Cache {
 
 
 void add_mes(struct CacheUnit* unit, char* mes, int mes_len) {
+//	printf("add mes ro cache\n");
 	struct List* add_this;
 	add_this = (struct List*)malloc(sizeof(struct List));
 	(add_this->str)[0] = '\0';
@@ -81,6 +87,7 @@ void add_mes(struct CacheUnit* unit, char* mes, int mes_len) {
 
 	unit->last_mes->next = add_this;
 	unit->last_mes = unit->last_mes->next;
+//	printf("add mes to cache end\n");
 }
 
 
@@ -88,7 +95,7 @@ struct CacheUnit* find_cache_by_url(struct Cache* cache, char* url) {
 	printf("find in cache by url : %s, size %d\n", url, strlen(url));
 	struct CacheUnit* cur = cache->units_head->next;
         while(cur != NULL) {
-		printf("compare %s and %s, %d %d\n", url, cur->url, strlen(url), strlen(cur->url));
+	//	printf("compare %s and %s, %d %d\n", url, cur->url, strlen(url), strlen(cur->url));
                 if(strcmp(url, cur->url) == 0) {
 			printf("FOUND in cache\n");
             		return cur;
@@ -343,7 +350,7 @@ struct RetType* find_related(struct ClientHostList* head, int find_him) {
 		if(cur->hosts != NULL) {
 
 			if(cur->client == find_him) {
-				printf("create new host conn info struct\n");
+				//printf("create new host conn info struct\n");
 				struct ListInt* tmp = cur->hosts->next;
 				struct ListInt* list_int;
 				list_int = (struct ListInt*)malloc(sizeof(struct ListInt));
@@ -362,7 +369,7 @@ struct RetType* find_related(struct ClientHostList* head, int find_him) {
 				ret->host = list_int;
 				return ret;
 			}
-			printf("search in hosts\n");
+			//printf("search in hosts\n");
 
 			struct ListInt* list_cur = cur->hosts;
 			while(list_cur != NULL) {
@@ -388,7 +395,6 @@ int transfer_cached(struct CacheUnit* cache_unit, int client) {
 	printf("transfer to particular waiter\n");
 	 struct List* cur = cache_unit -> mes_head->next;
                 while(cur != NULL) {
-			printf("%s", cur->str);
                         if(write(client, cur->str, cur->len) < 0) {
                                 printf("can't write to remote host\n");
                                 return -1;
@@ -517,6 +523,7 @@ int transfer_to_remote(int client, struct ListInt* related, struct pollfd* fds, 
 
 	related->host = remote_host;
 	related->cache_unit = NULL;
+	related->is_first = 1;
 	fds[nfd].fd = remote_host;
 	fds[nfd].events = POLLIN;
 	printf("Realated host now is %d\n", related->host);
@@ -534,6 +541,8 @@ int transfer_back(int client, struct ListInt* related) {
 	int  status, client_alive = 1;
 	buf[0] = '\0';
 
+	if(related->is_first == 1) {
+	printf("First reading\n");
         readen = read(remote_host, buf, MAX_HEADER_SIZE+MAX_BODY_SIZE);
 	buf[readen] = '\0';
 
@@ -563,9 +572,9 @@ int transfer_back(int client, struct ListInt* related) {
 		copy[line_end] = '\0';
 		parse_request(copy, NULL, ans);
 	}
-	printf("answer is: %d, url: %s, client %d, host %d\n\n---------\n%s\n----------\n\n", atoi(ans->status), related->url, client, related->host, buf);
+	printf("answer is: %d, url: %s, client %d, host %d\n", atoi(ans->status), related->url, client, related->host);
 
-/*
+
 	if(related->should_cache == 1) {
                 struct CacheUnit* found = find_cache_by_url(cache, related->url);
                 if(found == NULL) {
@@ -573,28 +582,44 @@ int transfer_back(int client, struct ListInt* related) {
 			printf("let's add to cache\n");
 			(cache->max_id)++;
 			related->cache_unit = add_cache_unit(cache, cache->max_id, related->url);
+			related->cache_unit->is_downloaded = 0;
 			add_mes(related->cache_unit, buf, readen);
 		}
 		}
 	}
-*/
-	free(ans);
 
+	free(ans);
+	related->is_first = 0;
+	return 2;
+	}
+	else {
 	int flaf =0;
-	while(1) {
+	//while(1) {
+		printf("Read again\n");
 		buf[0] = '\0';
+
+		//printf("read!");
 		readen = read(remote_host, buf, MAX_HEADER_SIZE+MAX_BODY_SIZE);
+		//printf("stop reading\n");
+
 		if(readen < 0) {
                          if(errno == EWOULDBLOCK) {
-				flaf = 1;
-                                break;
+				//flaf = 1;
+                               // break;
+				if(related->cache_unit != NULL)
+					related->cache_unit->is_downloaded = 1;
+				return 2;
 		}
 			printf("error reading from remote host in while %s, total readed %d\n", related->url, count);
 			return 1;
                 }
 		if(readen == 0) {
-			break;
+			if(related->cache_unit != NULL)
+				related->cache_unit->is_downloaded = 1;
+			return 1;
+			//break;
 		}
+
                 buf[readen]='\0';
 		count+=readen;
 		if(related->cache_unit != NULL)
@@ -604,14 +629,16 @@ int transfer_back(int client, struct ListInt* related) {
 			if(write(client, buf, readen) < 0) {
                 		printf("can't write to client\n");
         	        	client_alive = 0;
+				
 	        	}
 		}
 
-        }
-	printf("connection with: %s readed %d, client %d, host %d\n", related->url, count, client, related->host);
+       // }
+//	printf("connection with: %s readed %d, client %d, host %d\n", related->url, count, client, related->host);
 	if(flaf == 1)
 		return 2;
-	return 1;
+	}
+	return 2;
 }
 
 
@@ -658,7 +685,7 @@ struct pollfd* resize_fds( struct pollfd* fds) {
 
 
 int main(int argc, char* argv[]) {
-
+	signal(SIGPIPE, NULL);
 	cache = init_cache(cache);
 
 	int i, sc, client, remote_host, ret, res;
@@ -706,14 +733,15 @@ int main(int argc, char* argv[]) {
 	last = head;
 
 	while(1) {
-		ret = poll(fds, nfd, timeout);
+		ret = poll(fds, nfd, -1);
 		if(ret < 0) {
 			printf("poll failed\n");
 			break;
 		}
 		if(ret == 0) {
-			printf("exit after timeout\n");
-			exit(1);
+			//printf("exit after timeout\n");
+			//exit(1);
+			continue;
 		}
 		size_copy = nfd;
 		for(i = 0; i < size_copy; i++) {
@@ -744,13 +772,14 @@ int main(int argc, char* argv[]) {
 					struct ClientHostList* new_client;
 					new_client = (struct ClientHostList*)malloc(sizeof(struct ClientHostList));
 					new_client->client = client;
-					
+
 					struct ListInt* hosts = (struct ListInt*)malloc(sizeof(struct ListInt));
 					hosts->next = NULL;
 					hosts->host = -2;
 					hosts->url = NULL;
 					hosts->prev = NULL;
 					new_client->hosts = hosts;
+					new_client->is_cli_alive = 1;
 
 					new_client->next=NULL;
 					last->next = new_client;
@@ -770,11 +799,11 @@ int main(int argc, char* argv[]) {
 					struct ClientHostList* prev;
 					struct RetType* returned = find_related(head, fds[i].fd);
 					if(returned != NULL) {
-					prev = returned->prev;
-					related = returned->host;
+						prev = returned->prev;
+						related = returned->host;
 					}
 					else {
-						printf("returned is null\n");
+						printf("haven't found info about cli-host, %d\n", fds[i].fd);
 						fds[i].fd = -1;
 						continue;
 					}
@@ -783,7 +812,7 @@ int main(int argc, char* argv[]) {
 						if(current != NULL)
 							cli = current->client;
 						else {
-							printf("CURREn is NULL\n");
+							printf("current client-host info is null\n");
 							continue;
 						}
 					}
@@ -793,7 +822,7 @@ int main(int argc, char* argv[]) {
 						continue;
 					}
 					if(cli < 0) {
-						printf("HAVENT FOUND info about desc");
+						printf("haven't found info about client\n");
 						fds[i].fd = -1;
 						continue;
 					}
@@ -843,8 +872,8 @@ int main(int argc, char* argv[]) {
 									}
 									*/
 									free(prev->next);
+									prev->next = prev->next->next;
 								}
-								prev->next = prev->next->next;
 								if(prev->next == NULL)
 									last = prev;
 							}
@@ -858,14 +887,16 @@ int main(int argc, char* argv[]) {
 							//we added host
 							nfd++;
 						}
-						printf("host check %d\n", related->host);
+
 					}
 					else {
 						printf("message came for %d (back to cli)\n\n", fds[i].fd);
 
 						if(related->host == fds[i].fd) {
+
 							ret = transfer_back(cli, related);
 							if(ret != 2) {
+							printf("close connection with server\n");
 							close(fds[i].fd);
 							fds[i].fd=-1;
 							related->host = -2;
