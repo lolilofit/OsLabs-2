@@ -688,6 +688,7 @@ struct pollfd* resize_fds( struct pollfd* fds) {
 }
 
 struct ClientHostList* cleanup(struct pollfd* fds, int i, int nfd, struct ListInt* related, struct ClientHostList* last, struct ClientHostList* prev) {
+    printf("Clear client-host info");
     int j;
     struct ListInt* list_cur;
 		list_cur = related;
@@ -894,8 +895,11 @@ int main(int argc, char* argv[]) {
 							close(cli);
 							fds[i].fd = -1;
 							current->is_cli_alive = 0;
-              if(current->count_opened == current->count_downloaded)
+              if(current->count_opened == current->count_downloaded) {
+                printf("clear client from Client conn, last now %d\n", last->client);
                 last = cleanup(fds, i, nfd, related, last, prev);
+                printf("last now %d\n", last->client);
+              }
 							/*
               struct ListInt* list_cur;
 							list_cur = related;
@@ -963,8 +967,11 @@ int main(int argc, char* argv[]) {
 							  fds[i].fd=-1;
 							  related->host = -2;
 
-                if(current->count_opened == current->count_downloaded)
+                if(current->is_cli_alive == 0 && current->count_opened == current->count_downloaded) {
+                 printf("clear client from host conn, last now %d\n", last->client);
                   last = cleanup(fds, i, nfd, related, last, prev);
+                  printf("last now %d\n", last->client);
+                }
 						}
 
 						}
