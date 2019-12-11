@@ -423,6 +423,7 @@ int transfer_to_remote(int client, struct ListInt* related, struct pollfd* fds, 
 	buf[readen] = '\0';
 
 
+
 	struct HttpParams* param;
         param = (struct HttpParams*)malloc(sizeof(struct HttpParams));
 	char copy[readen];
@@ -438,6 +439,7 @@ int transfer_to_remote(int client, struct ListInt* related, struct pollfd* fds, 
 		if((param->host)[0] != '\0')
 			divide_host(param->host, &h);
 		else {
+			printf("revced:\n%s\n", buf);
 			printf("\n\nNO HOST IN HEADER end with 0 \n\n");
 		}
 
@@ -547,10 +549,10 @@ int transfer_back(int client, struct ListInt* related, struct ClientHostList* cu
 	buf[readen] = '\0';
 
 	if(readen < 0) {
-    printf("error reading from remote host\n");
-    (current->count_downloaded)++;
-    return -1;
-  }
+	  printf("error reading from remote host\n");
+   	 (current->count_downloaded)++;
+  	 return -1;
+  	}
 
 	if(readen == 0) { 
     (current->count_downloaded)++;
@@ -969,8 +971,8 @@ int main(int argc, char* argv[]) {
 
                 if(current->is_cli_alive == 0 && current->count_opened == current->count_downloaded) {
                  printf("clear client from host conn, last now %d\n", last->client);
-                  last = cleanup(fds, i, nfd, related, last, prev);
-                  printf("last now %d\n", last->client);
+                 last = cleanup(fds, i, nfd, related, last, prev);
+                 printf("last now %d\n", last->client);
                 }
 						}
 
