@@ -687,11 +687,14 @@ struct pollfd* resize_fds( struct pollfd* fds) {
 	return new_fds;
 }
 
-struct ClientHostList* cleanup(struct pollfd* fds, int i, int nfd, struct ListInt* related, struct ClientHostList* last, struct ClientHostList* prev) {
+struct ClientHostList* cleanup(struct pollfd* fds, int i, int nfd, struct ListInt* related, struct ClientHostList* last, struct ClientHostList* prev, int should_close_cli) {
     printf("Clear client-host info");
     int j;
     struct ListInt* list_cur;
 		list_cur = related;
+    struct ClientHostList* current = prev->next;
+    if(current == NULL) should_close_cli = 0;
+
     while(list_cur != NULL) {
 									for(j = 0; j < nfd; j++) {
 										if(fds[j].fd == list_cur->host) {
@@ -699,6 +702,13 @@ struct ClientHostList* cleanup(struct pollfd* fds, int i, int nfd, struct ListIn
 											fds[j].fd = -1;
 											list_cur->host = -1;
 										}
+                    if(should_close_cli == 1) {
+                      if(fds[j].fd == current->client) {
+                        close(fds[j].fd);
+											  fds[j].fd = -1;
+                        current->client = -1;
+                      }
+                    }
 									}
 									list_cur = list_cur->next;
 							}
@@ -710,6 +720,13 @@ struct ClientHostList* cleanup(struct pollfd* fds, int i, int nfd, struct ListIn
 										fds[j].fd = -1;
 										list_cur->host = -1;
 									}
+                  if(should_close_cli == 1) {
+                      if(fds[j].fd == current->client) {
+                        close(fds[j].fd);
+											  fds[j].fd = -1;
+                        current->client = -1;
+                      }
+                    }
 								}
 								list_cur = list_cur->prev;
 							}
@@ -897,7 +914,7 @@ int main(int argc, char* argv[]) {
 							current->is_cli_alive = 0;
               if(current->count_opened == current->count_downloaded) {
                 printf("clear client from Client conn, last now %d\n", last->client);
-                last = cleanup(fds, i, nfd, related, last, prev);
+                last = cleanup(fds, i, nfd, related, last, prev, 0);
                 printf("last now %d\n", last->client);
               }
 							/*
@@ -969,7 +986,7 @@ int main(int argc, char* argv[]) {
 
                 if(current->is_cli_alive == 0 && current->count_opened == current->count_downloaded) {
                  printf("clear client from host conn, last now %d\n", last->client);
-                  last = cleanup(fds, i, nfd, related, last, prev);
+                  last = cleanup(fds, i, nfd, related, last, prev, 1);
                   printf("last now %d\n", last->client);
                 }
 						}
