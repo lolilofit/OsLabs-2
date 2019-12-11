@@ -642,8 +642,9 @@ int main(int argc, char* argv[]) {
 			break;
 		}
 		if(ret == 0) {
-			printf("exit after timeout\n");
-			exit(1);
+			//printf("exit after timeout\n");
+			//exit(1);
+			continue;
 		}
 		size_copy = nfd;
 		for(i = 0; i < size_copy; i++) {
