@@ -482,8 +482,16 @@ int transfer_to_waiters(struct CacheUnit* cache_unit) {
 	return 0;
 }
 
-int free_waitings(struct CacheUnit* cache_unit) {
-	return 0;
+int free_waiting(struct CacheUnit* cache_unit) {
+	struct WaitingOne* cur = cache_unit->waiting->next;
+  struct WaitingOne* prev;
+  while(cur != NULL) {
+    prev = cur;
+    cur = cur->next;
+    free(prev);
+  }
+  cache_unit->waiting->next = NULL;
+  return 0;
 }
 
 int transfer_to_remote(int client, struct ListInt* related, struct pollfd* fds, int nfd) {
@@ -693,21 +701,26 @@ int transfer_back(int client, struct ListInt* related, struct ClientHostList* cu
 	
 		if(readen < 0) {
         if(errno == EWOULDBLOCK) {
-				//flaf = 1;
-        // break;
-				if(related->cache_unit != NULL)
+				if(related->cache_unit != NULL) {
 					related->cache_unit->is_downloaded = 1;
+          //transfer_to_waiters(related->cache_unit);
+          free_waiting(related->cache_unit);    
+        }
         (current->count_downloaded)++;
 				return 2;
 		    }
 			printf("error reading from remote host in while %s, total readed %d\n", related->url, count);
-			(current->count_downloaded)++;
+			free_waiting(related->cache_unit);
+      (current->count_downloaded)++;
       //cache?
       return 1;
                 }
 		if(readen == 0) {
-			if(related->cache_unit != NULL)
+			if(related->cache_unit != NULL) {
 				related->cache_unit->is_downloaded = 1;
+        //transfer_to_waiters(related->cache_unit);
+        free_waiting(related->cache_unit);
+      }
 			(current->count_downloaded)++;
       return 1;
 			//break;
