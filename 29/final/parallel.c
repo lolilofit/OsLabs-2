@@ -144,7 +144,7 @@ int add_waiting(struct CacheUnit* cache_unit, int client) {
   new_waiting->next = tmp;
   new_waiting->fd = client;
   new_waiting->blocks_transfered = 0;
-  cache_unit->waiting_now->next = new_waiting;
+  cache_unit->waiting->next = new_waiting;
 
   return 0;
 }
@@ -702,7 +702,7 @@ int transfer_back(int client, struct ListInt* related, struct ClientHostList* cu
 		}
 
     if(related->cache_unit != NULL)
-      transfer_cached(related->cache_unit);
+      transfer_to_waiters(related->cache_unit);
        // }
 //	printf("connection with: %s readed %d, client %d, host %d\n", related->url, count, client, related->host);
 	if(flaf == 1)
