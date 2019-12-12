@@ -65,6 +65,7 @@ struct CacheUnit {
   int is_downloaded;
   struct WaitingOne* waiting;
 	struct CacheUnit* next;
+	int is_valid;
 };
 
 
@@ -92,11 +93,13 @@ struct CacheUnit* find_cache_by_url(struct Cache* cache, char* url) {
 	printf("find in cache by url : %s, size %d\n", url, strlen(url));
 	struct CacheUnit* cur = cache->units_head->next;
         while(cur != NULL) {
-                if(strcmp(url, cur->url) == 0) {
+        	if(cur -> is_valid == 1) {
+	        if(strcmp(url, cur->url) == 0) {
 			printf("FOUND in cache\n");
             		return cur;
 		}
                 cur = cur->next;
+		}
         }
 	printf("not found\n");
         return NULL;
@@ -121,6 +124,7 @@ struct CacheUnit* init_cache_unit(int id, char* url) {
   head->blocks_transfered = 0;
   cache_unit->waiting = head;
 
+	cache_unit->is_valid = 1;
 	return cache_unit;
 }
 
@@ -620,9 +624,9 @@ int transfer_back(struct ClientHostList* related) {
 	int  status, client_alive = 1;
 	buf[0] = '\0';
 
-if(related->is_first == 1) {
-	printf("first read\n");
-  readen = read(remote_host, buf, MAX_HEADER_SIZE+MAX_BODY_SIZE);
+	if(related->is_first == 1) {
+		printf("first read\n");
+  	readen = read(remote_host, buf, MAX_HEADER_SIZE+MAX_BODY_SIZE);
 	buf[readen] = '\0';
 
 	if(readen < 0) {
@@ -660,7 +664,7 @@ if(related->is_first == 1) {
 			            printf("let's add to cache\n");
 			            (cache->max_id)++;
 			            related->cache_unit = add_cache_unit(cache, cache->max_id, related->url);
-                  related->cache_unit->is_downloaded = 0;
+        		            related->cache_unit->is_downloaded = 0;
 			            add_mes(related->cache_unit, buf, readen);
 		            }
 		}
@@ -681,6 +685,8 @@ if(related->is_first == 1) {
               free_waiting(related->cache_unit);
       	  }
           related->is_host_done = 1;
+	  if(related->cache_unit != NULL)
+		related->cache_unit->is_valid = 0;
 			    return 2;
         }
         printf("error reading from remote host in while %s, total readed %d\n", related->url, count);
