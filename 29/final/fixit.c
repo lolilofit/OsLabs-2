@@ -461,6 +461,11 @@ int transfer_to_waiters(struct CacheUnit* cache_unit) {
 }
 
 int free_waiting(struct CacheUnit* cache_unit) {
+  if(cache_unit == NULL) 
+        return -1;
+  if(cache_unit->waiting == NULL)
+      return -1;
+      
 	struct WaitingOne* cur = cache_unit->waiting->next;
   struct WaitingOne* prev;
   while(cur != NULL) {
