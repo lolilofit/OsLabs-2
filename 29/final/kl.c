@@ -602,22 +602,22 @@ int transfer_back(int client, struct ListInt* related, struct ClientHostList* cu
 	//while(1) {
 		printf("Read again\n");
 		buf[0] = '\0';
-  	readen = read(remote_host, buf, MAX_HEADER_SIZE+MAX_BODY_SIZE);
-	
+	  	readen = read(remote_host, buf, MAX_HEADER_SIZE+MAX_BODY_SIZE);
+		printf("readen\n");
 		if(readen < 0) {
-        if(errno == EWOULDBLOCK) {
+        		if(errno == EWOULDBLOCK) {
 				//flaf = 1;
-        // break;
+       				 // break;
 				if(related->cache_unit != NULL)
 					related->cache_unit->is_downloaded = 1;
-        (current->count_downloaded)++;
+        		(current->count_downloaded)++;
 				return 2;
 		    }
 			printf("error reading from remote host in while %s, total readed %d\n", related->url, count);
 			(current->count_downloaded)++;
-      //cache?
-      return 1;
-                }
+      		//cache?
+      		return 1;
+              	}
 		if(readen == 0) {
 			if(related->cache_unit != NULL)
 				related->cache_unit->is_downloaded = 1;
@@ -698,43 +698,45 @@ struct ClientHostList* cleanup(struct pollfd* fds, int i, int nfd, struct ListIn
     if(current == NULL) should_close_cli = 0;
 
     while(list_cur != NULL) {
-									for(j = 0; j < nfd; j++) {
-										if(fds[j].fd == list_cur->host) {
-											close(fds[j].fd);
-											fds[j].fd = -1;
-											list_cur->host = -1;
-										}
-                    if(should_close_cli == 1) {
+	for(j = 0; j < nfd; j++) {
+		if(fds[j].fd == list_cur->host) {
+			close(fds[j].fd);
+			fds[j].fd = -1;
+			list_cur->host = -1;
+		}
+                if(should_close_cli == 1) {
                       if(fds[j].fd == current->client) {
+			printf("close cli fron function");
                         close(fds[j].fd);
-											  fds[j].fd = -1;
+			fds[j].fd = -1;
                         current->client = -1;
                       }
-                    }
-									}
-									list_cur = list_cur->next;
-							}
-							list_cur = related->prev;
-							while(list_cur != NULL) {
-								for(j = 0; j<nfd; j++) {
-									if(fds[j].fd == list_cur->host) {
-										close(fds[j].fd);
-										fds[j].fd = -1;
-										list_cur->host = -1;
-									}
+         	 }
+     	}
+	list_cur = list_cur->next;
+	}
+	list_cur = related->prev;
+	while(list_cur != NULL) {
+		for(j = 0; j<nfd; j++) {
+			if(fds[j].fd == list_cur->host) {
+				close(fds[j].fd);
+				fds[j].fd = -1;
+				list_cur->host = -1;
+			}
                   if(should_close_cli == 1) {
                       if(fds[j].fd == current->client) {
-                        close(fds[j].fd);
-											  fds[j].fd = -1;
+                	printf("close cli from function\n");
+		        close(fds[j].fd);
+			fds[j].fd = -1;
                         current->client = -1;
                       }
                     }
-								}
-								list_cur = list_cur->prev;
-							}
-							if(prev->next != NULL) {
-								prev->next->client = -2;
-								if(prev->next != NULL) {
+		}
+		list_cur = list_cur->prev;
+	}
+	if(prev->next != NULL) {
+		prev->next->client = -2;
+		if(prev->next != NULL) {
                   /*
 									-----
                   struct ListInt* cur_list = prev->next->hosts;
@@ -747,15 +749,15 @@ struct ClientHostList* cleanup(struct pollfd* fds, int i, int nfd, struct ListIn
 									}
 									-------
                   */
-									free(prev->next);
-									prev->next = prev->next->next;
-								}
-								if(prev->next == NULL)
-									return prev;
-							}
-							else {
-								return prev;
-							}
+			free(prev->next);
+			prev->next = prev->next->next;
+		}
+		if(prev->next == NULL)
+			return prev;
+		}
+		else {
+			return prev;
+		}
     return last;
 }
 
@@ -853,8 +855,8 @@ int main(int argc, char* argv[]) {
 					hosts->prev = NULL;
 					new_client->hosts = hosts;
 					new_client->is_cli_alive = 1;
-          new_client->count_downloaded = 0;
-          new_client->count_opened= 0;
+          				new_client->count_downloaded = 0;
+          				new_client->count_opened= 0;
 
 					new_client->next=NULL;
 					last->next = new_client;
@@ -890,7 +892,7 @@ int main(int argc, char* argv[]) {
 						else {
 							printf("current client-host info is null\n");
 							fds[i].fd = -1;
-              continue;
+              						continue;
 						}
 					}
 					else {
@@ -914,6 +916,7 @@ int main(int argc, char* argv[]) {
 							close(cli);
 							fds[i].fd = -1;
 							current->is_cli_alive = 0;
+							current->client = -1;
               if(current->count_opened == current->count_downloaded) {
                 printf("clear client from Client conn, last now %d\n", last->client);
                 last = cleanup(fds, i, nfd, related, last, prev, 0);
@@ -970,7 +973,7 @@ int main(int argc, char* argv[]) {
 						if(ret == 0) {
 							//we added host
 							(current->count_opened)++;
-              nfd++;
+              						nfd++;
 						}
 
 					}
@@ -980,17 +983,18 @@ int main(int argc, char* argv[]) {
 						if(related->host == fds[i].fd) {
 
 							ret = transfer_back(cli, related, current);
+							printf("returned from transfer back\n");
 							if(ret != 2) {
 							  printf("close connection with server\n");
 							  close(fds[i].fd);
 							  fds[i].fd=-1;
 							  related->host = -2;
 
-                if(current->is_cli_alive == 0 && current->count_opened == current->count_downloaded) {
-                  printf("clear client from host conn, last now %d\n", last->client);
-                  last = cleanup(fds, i, nfd, related, last, prev, 1);
-                  printf("last now %d\n", last->client);
-                }
+                				if(current->is_cli_alive == 0 && current->count_opened == current->count_downloaded) {
+                  					printf("clear client from host conn, last now %d\n", last->client);
+                  					last = cleanup(fds, i, nfd, related, last, prev, 1);
+                  					printf("last now %d\n", last->client);
+               					}
 						}
 
 						}
