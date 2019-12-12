@@ -137,6 +137,14 @@ int add_waiting(struct CacheUnit* cache_unit, int client) {
 	printf("add waiting\n");
 	if(cache_unit == NULL)
 		return -1;
+
+	printf("wait now:\n");
+	struct WaitingOne* cur = cache_unit->waiting;
+	while(cur != NULL) {
+		printf("wait - %d\n", cur->fd);
+		cur = cur->next;
+	}
+
 	struct WaitingOne* tmp;
   tmp = cache_unit->waiting->next;
   struct WaitingOne* new_waiting;
@@ -145,6 +153,15 @@ int add_waiting(struct CacheUnit* cache_unit, int client) {
   new_waiting->fd = client;
   new_waiting->blocks_transfered = 0;
   cache_unit->waiting->next = new_waiting;
+
+
+	printf("waiting after adding\n");
+	struct WaitingOne* cur1 = cache_unit->waiting;
+	while(cur1 != NULL) {
+		printf("wait - %d\n", cur1->fd);
+		cur1 = cur1->next;
+	}
+
   printf("add waiting end\n");
   return 0;
 }
@@ -356,7 +373,7 @@ int get_remote_socket(char* host, char* port, struct Host* clear_host) {
         tv.tv_sec = 1;
         tv.tv_usec = 0;
         setsockopt(sc, SOL_SOCKET, SO_RCVTIMEO,(struct timeval *)&tv,sizeof(struct timeval));
-return sc;
+	return sc;
 }
 
 struct RetType {
@@ -439,35 +456,35 @@ int transfer_to_waiters(struct CacheUnit* cache_unit) {
   	return -1;
   }
 
-	struct WaitingOne* client = cache_unit->waiting->next;
+  struct WaitingOne* client = cache_unit->waiting->next;
   struct WaitingOne* prev;
 
   while(client != NULL) { 
-		struct List* cur = cache_unit -> mes_head->next;
-		int count = 0;
-    printf("transfer to cli %d blocks %d\n", client->fd, client->blocks_transfered);
+	struct List* cur = cache_unit -> mes_head->next;
+	int count = 0;
+    	printf("transfer to cli %d blocks %d\n", client->fd, client->blocks_transfered);
     
-    while(cur != NULL) {
-      if(count >=  client->blocks_transfered) {
-			    if(write(client->fd, cur->str, cur->len) < 0) {
-            printf("can't write to waiting client\n");
-            return -1;
-        }
-      }
-      count++;
-      cur = cur->next;
-		}
-    client->blocks_transfered = count;
-
-    prev = client;
-    client = client->next;
-		close(prev->fd);
-    free(prev);
+   	while(cur != NULL) {
+      		if(count >=  client->blocks_transfered) {
+			if(write(client->fd, cur->str, cur->len) < 0) {
+            			printf("can't write to waiting client\n");
+            			return -1;
+        		}
+      		}
+      		count++;
+     		cur = cur->next;
 	}
-  printf("transfer to waiters end\n");
+    	client->blocks_transfered = count;
+        printf("transfered now %d\n", client->blocks_transfered);
+	client = client->next;
+	}
+  	printf("transfer to waiters end\n");
 	return 0;
 }
 
+int free_waitings(struct CacheUnit* cache_unit) {
+	return 0;
+}
 
 int transfer_to_remote(int client, struct ListInt* related, struct pollfd* fds, int nfd) {
 
@@ -556,15 +573,18 @@ int transfer_to_remote(int client, struct ListInt* related, struct pollfd* fds, 
 
 	if((strcmp(param->method, "GET") == 0) || (strcmp(param->method, "HEAD") == 0)) {
 	if(found != NULL) {
-    if(found->is_downloaded == 1) {
-		  printf("it's in cache and downloaded, transfer to %d\n", client);
-		  if(transfer_cached(found, client) < 0)
-			  return -1;
-		  return 1;
-    }
-    else {
-      add_waiting(found, client);
-    }
+    		if(found->is_downloaded == 1) {
+			 printf("it's in cache and downloaded, transfer to %d\n", client);
+		 	 if(transfer_cached(found, client) < 0)
+			 	return -1;
+		 	 return 1;
+    		}
+    		else {
+      			add_waiting(found, client);
+			related->host = -1;
+			related->cache_unit = NULL;
+			return 1;
+    	}
 	}
 	else {
 		printf("created unit will be added to cache (probably)\n");
@@ -612,14 +632,14 @@ int transfer_back(int client, struct ListInt* related, struct ClientHostList* cu
 
 	if(related->is_first == 1) {
 	printf("First reading\n");
-  readen = read(remote_host, buf, MAX_HEADER_SIZE+MAX_BODY_SIZE);
+  	readen = read(remote_host, buf, MAX_HEADER_SIZE+MAX_BODY_SIZE);
 	buf[readen] = '\0';
 
 	if(readen < 0) {
-    printf("error reading from remote host\n");
-    (current->count_downloaded)++;
-    return -1;
-  }
+   	 printf("error reading from remote host\n");
+    	(current->count_downloaded)++;
+   	 return -1;
+ 	 }
 
 	if(readen == 0) { 
     (current->count_downloaded)++;
@@ -830,7 +850,8 @@ struct ClientHostList* cleanup(struct pollfd* fds, int i, int nfd, struct ListIn
 }
 
 int main(int argc, char* argv[]) {
-	signal(SIGPIPE, NULL);
+	//signal(SIGPIPE, NULL);
+	sigaction(SIGPIPE, NULL, NULL);
 	cache = init_cache(cache);
 
 	int i, sc, client, remote_host, ret, res;
@@ -951,6 +972,7 @@ int main(int argc, char* argv[]) {
 					else {
 						printf("haven't found info about cli-host, %d\n", fds[i].fd);
 						fds[i].fd = -1;
+						nfd = evacuate_fds(fds);
 						continue;
 					}
 					if(prev != NULL) {
@@ -960,17 +982,20 @@ int main(int argc, char* argv[]) {
 						else {
 							printf("current client-host info is null\n");
 							fds[i].fd = -1;
-              continue;
+							nfd = evacuate_fds(fds);
+              						continue;
 						}
 					}
 					else {
 						printf("prev is NULL\n");
 						fds[i].fd = -1;
+						nfd = evacuate_fds(fds);
 						continue;
 					}
 					if(cli < 0) {
-						printf("haven't found info about client\n");
+						printf("haven't found info about client, %d\n", fds[i]);
 						fds[i].fd = -1;
+						nfd = evacuate_fds(fds);
 						continue;
 					}
 					printf("related cli found %d, cli is %d\n", related->host, cli);
