@@ -138,7 +138,7 @@ int add_waiting(struct CacheUnit* cache_unit, int client) {
 	if(cache_unit == NULL)
 		return -1;
 	struct WaitingOne* tmp;
-  tmp = cache_unit->waiting_now->next;
+  tmp = cache_unit->waiting->next;
   struct WaitingOne* new_waiting;
   new_waiting = (struct WaitingOne*)malloc(sizeof(struct WaitingOne));
   new_waiting->next = tmp;
