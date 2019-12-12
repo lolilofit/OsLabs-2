@@ -423,9 +423,9 @@ int transfer_to_waiters(struct CacheUnit* cache_unit) {
   	return -1;
   }
 	if(cache_unit->waiting == NULL) {
-    printf("null waiting\n");
-  	return -1;
-  }
+    		printf("null waiting\n");
+  		return -1;
+  	}
 
   struct WaitingOne* client = cache_unit->waiting->next;
   struct WaitingOne* prev;
