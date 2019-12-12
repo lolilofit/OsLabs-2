@@ -479,7 +479,7 @@ int transfer_to_remote(struct ClientHostList* related, struct pollfd* fds, int n
 		    return 1;
       }
       else {
-        add_waiting(found, client);
+//        add_waiting(found, client);
 			  related->remote_host = -1;
 			  related->cache_unit = NULL;
 			  return 1;
