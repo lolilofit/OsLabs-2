@@ -373,7 +373,6 @@ int transfer_cached(struct CacheUnit* cache_unit, int client) {
 	printf("transfer to particular waiter\n");
 	 struct List* cur = cache_unit -> mes_head->next;
                 while(cur != NULL) {
-			printf("%s", cur->str);
                         if(write(client, cur->str, cur->len) < 0) {
                                 printf("can't write to remote host\n");
                                 return -1;
@@ -466,7 +465,7 @@ int transfer_to_remote(struct ClientHostList* related, struct pollfd* fds, int n
 		strncat(url, param->path, readen);
 
 
-	printf("BEFORe find in cache by url %s, client %d, host %d \n", url, related->client, related->remote_host);
+	//printf("BEFORe find in cache by url %s, client %d, host %d \n", url, related->client, related->remote_host);
 	struct CacheUnit* found = find_cache_by_url(cache, url);
 	printf("found end\n");
 
@@ -527,6 +526,7 @@ int transfer_back(struct ClientHostList* related) {
 	buf[0] = '\0';
 
 if(related->is_first == 1) {
+	printf("first read\n");
   readen = read(remote_host, buf, MAX_HEADER_SIZE+MAX_BODY_SIZE);
 	buf[readen] = '\0';
 
@@ -574,6 +574,7 @@ if(related->is_first == 1) {
   related->is_first = 0;
   return  2;
 }
+	printf("Read again\n");
 	int flaf =0;
 //	while(1) {
 		buf[0] = '\0';
@@ -790,8 +791,12 @@ int main(int argc, char* argv[]) {
                   fds[j].fd=-1;
                  }
               }
-              related->remote_host = -1;
-            }
+               related->remote_host = -1;
+            	related->is_host_done = 1;
+		if(related->cache_unit != NULL)
+			related->cache_unit->is_downloaded = 1;
+		related->cache_unit = NULL;
+	    }
 
             if((ret =  transfer_to_remote(related, fds, nfd))== -1) {
 							printf("close client %d\n", fds[i].fd);

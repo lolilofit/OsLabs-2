@@ -1006,7 +1006,7 @@ int main(int argc, char* argv[]) {
 						continue;
 					}
 					if(cli < 0) {
-						printf("haven't found info about client, %d\n", fds[i]);
+						printf("haven't found info about client, %d\n", fds[i].fd);
 						fds[i].fd = -1;
 						nfd = evacuate_fds(fds);
 						continue;
