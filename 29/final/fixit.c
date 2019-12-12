@@ -112,8 +112,15 @@ struct CacheUnit* init_cache_unit(int id, char* url) {
 	cache_unit->last_mes = cache_unit->mes_head;
 	(cache_unit->mes_head->str)[0] = '\0';
 	cache_unit->mes_head->len = 0;
-
 	cache_unit->url = url;
+
+  struct WaitingOne* head;
+  head = (struct WaitingOne*)malloc(sizeof(struct WaitingOne));
+  head->next = NULL;
+  head->fd = -1;
+  head->blocks_transfered = 0;
+  cache_unit->waiting = head;
+
 	return cache_unit;
 }
 
