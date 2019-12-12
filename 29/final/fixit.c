@@ -169,6 +169,39 @@ void dealloc_cache(struct Cache* cache) {
 	}
 }
 
+int add_waiting(struct CacheUnit* cache_unit, int client) {
+	printf("add waiting\n");
+	if(cache_unit == NULL)
+		return -1;
+
+	printf("wait now:\n");
+	struct WaitingOne* cur = cache_unit->waiting;
+	while(cur != NULL) {
+		printf("wait - %d\n", cur->fd);
+		cur = cur->next;
+	}
+
+	struct WaitingOne* tmp;
+  tmp = cache_unit->waiting->next;
+  struct WaitingOne* new_waiting;
+  new_waiting = (struct WaitingOne*)malloc(sizeof(struct WaitingOne));
+  new_waiting->next = tmp;
+  new_waiting->fd = client;
+  new_waiting->blocks_transfered = 0;
+  cache_unit->waiting->next = new_waiting;
+
+
+	printf("waiting after adding\n");
+	struct WaitingOne* cur1 = cache_unit->waiting;
+	while(cur1 != NULL) {
+		printf("wait - %d\n", cur1->fd);
+		cur1 = cur1->next;
+	}
+
+  printf("add waiting end\n");
+  return 0;
+}
+
 struct Cache* cache;
 
 void pars_path(struct HttpParams* response) {
@@ -383,6 +416,56 @@ int transfer_cached(struct CacheUnit* cache_unit, int client) {
 }
 
 
+int transfer_to_waiters(struct CacheUnit* cache_unit) {
+	printf("transfer to waiters\n");
+	if(cache_unit == NULL) {
+    printf("null cache\n");
+  	return -1;
+  }
+	if(cache_unit->waiting == NULL) {
+    printf("null waiting\n");
+  	return -1;
+  }
+
+  struct WaitingOne* client = cache_unit->waiting->next;
+  struct WaitingOne* prev;
+
+  while(client != NULL) { 
+	struct List* cur = cache_unit -> mes_head->next;
+	int count = 0;
+    	printf("transfer to cli %d blocks %d\n", client->fd, client->blocks_transfered);
+    
+   	while(cur != NULL) {
+      		if(count >=  client->blocks_transfered) {
+			if(write(client->fd, cur->str, cur->len) < 0) {
+            			printf("can't write to waiting client\n");
+            			return -1;
+        		}
+      		}
+      		count++;
+     		cur = cur->next;
+	}
+    	client->blocks_transfered = count;
+        printf("transfered now %d\n", client->blocks_transfered);
+	client = client->next;
+	}
+  	printf("transfer to waiters end\n");
+	return 0;
+}
+
+int free_waiting(struct CacheUnit* cache_unit) {
+	struct WaitingOne* cur = cache_unit->waiting->next;
+  struct WaitingOne* prev;
+  while(cur != NULL) {
+    prev = cur;
+    cur = cur->next;
+    free(prev);
+  }
+  cache_unit->waiting->next = NULL;
+  return 0;
+}
+
+
 int transfer_to_remote(struct ClientHostList* related, struct pollfd* fds, int nfd) {
 
 	char buf[MAX_HEADER_SIZE + MAX_BODY_SIZE+1];
@@ -478,7 +561,7 @@ int transfer_to_remote(struct ClientHostList* related, struct pollfd* fds, int n
 		    return 1;
       }
       else {
-//        add_waiting(found, client);
+        add_waiting(found, client);
 			  related->remote_host = -1;
 			  related->cache_unit = NULL;
 			  return 1;
@@ -583,20 +666,20 @@ if(related->is_first == 1) {
         if(errno == EWOULDBLOCK) {
           if(related->cache_unit != NULL) {
             related->cache_unit->is_downloaded = 1;
-            //free_waiting(related->cache_unit);
+              free_waiting(related->cache_unit);
       	  }
           related->is_host_done = 1;
 			    return 2;
         }
         printf("error reading from remote host in while %s, total readed %d\n", related->url, count);
-        //free_waiting(related->cache_unit);
+        free_waiting(related->cache_unit);
         related->is_host_done = 1;
         return 1;
     }
 		if(readen == 0) {
       if(related->cache_unit != NULL) {
 				related->cache_unit->is_downloaded = 1;
-       // free_waiting(related->cache_unit);
+        free_waiting(related->cache_unit);
       }
 			related->is_host_done = 1;
       return  1;
@@ -613,8 +696,8 @@ if(related->is_first == 1) {
 	      }
 		}
 
-  //if(related->cache_unit != NULL)
-  //    transfer_to_waiters(related->cache_unit);
+  if(related->cache_unit != NULL)
+      transfer_to_waiters(related->cache_unit);
    return 2;
 }
 
