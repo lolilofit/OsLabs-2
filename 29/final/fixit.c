@@ -13,7 +13,6 @@
 #include <sys/ioctl.h>
 #include <netinet/tcp.h>
 #include<signal.h>
-
 #include <fcntl.h>
 #include <sys/file.h>
 
@@ -47,9 +46,9 @@ struct ClientHostList {
 	char* url;
 	struct ClientHostList* next;
 	struct CacheUnit* cache_unit;
-  int is_cli_alive;
-  int is_host_done;
-  int is_first;
+    int is_cli_alive;
+    int is_host_done;
+    int is_first;
 };
 
 struct WaitingOne {
@@ -62,8 +61,8 @@ struct CacheUnit {
 	struct List* mes_head;
 	struct List* last_mes;
 	char* url;
-  int is_downloaded;
-  struct WaitingOne* waiting;
+    int is_downloaded;
+    struct WaitingOne* waiting;
 	struct CacheUnit* next;
 	int is_valid;
 };
@@ -320,26 +319,7 @@ struct Host{
 	char host[MAX_HEADER_SIZE+1];
 	int port;
 };
-/*
-struct Host* get_port_host(char* host) {
-	 char* clear_host;
-	 clear_host = (char*)malloc(sizeof(char)*(MAX_HEADER_SIZE+1));
-	 clear_host[0]= '\0';
-	 char* ptr;
-	 ptr = strtok(host, ":");
-	 strcpy(clear_host, ptr);
-	 struct Host* ret;
-	 ret = ( struct Host*)malloc(sizeof( struct Host));
-	 ret->host = clear_host;
-	 
-	 ret->port = 80;
-	 ptr = strtok(host, ":");
-	 if(ptr != NULL) {
-		ret->port = atoi(ptr);
-	 }
-	return ret;
-}
-*/
+
 int divide_host(char* response, struct Host* host) {
         char *tmp;
         char port[MAX_HEADER_SIZE+1];
@@ -362,11 +342,7 @@ int divide_host(char* response, struct Host* host) {
 int get_remote_socket(char* host, char* port, struct Host* clear_host) {
 	int remote_port = 80, sc, res;
 	struct sockaddr_in sc_addr;
-
-	//struct Host* clear_host = get_port_host(host);
-	//struct Host clear_host;
-	//divide_host(host, &clear_host);
-
+	
 	struct hostent *hp;
 	hp = gethostbyname(clear_host->host);
 	if(hp == NULL) {
@@ -552,7 +528,6 @@ int transfer_to_remote(struct ClientHostList* related, struct pollfd* fds, int n
 			printf("\n\n NO HOST IN HEADER end null\n\n");
 			
 		}
-	//	h.port = 80;
 	}
 
 	char* url;
@@ -636,8 +611,7 @@ int transfer_back(struct ClientHostList* related) {
         }
 
 	if(readen == 0) { 
-	//	printf("nothing to read anymore\n");
-    related->is_host_done = 1;
+    		related->is_host_done = 1;
 		return 1;
 	}
 	count+=readen;
@@ -670,49 +644,47 @@ int transfer_back(struct ClientHostList* related) {
 		}
 	}
 	free(ans);
-  related->is_first = 0;
-  return  2;
+  	related->is_first = 0;
+  	return  2;
 }
 	printf("Read again\n");
-	int flaf =0;
-//	while(1) {
-		buf[0] = '\0';
-		readen = read(remote_host, buf, MAX_HEADER_SIZE+MAX_BODY_SIZE);
-		if(readen < 0) {
-        if(errno == EWOULDBLOCK) {
-          if(related->cache_unit != NULL) {
-            related->cache_unit->is_downloaded = 1;
+	buf[0] = '\0';
+	readen = read(remote_host, buf, MAX_HEADER_SIZE+MAX_BODY_SIZE);
+	if(readen < 0) {
+          if(errno == EWOULDBLOCK) {
+            if(related->cache_unit != NULL) {
+              related->cache_unit->is_downloaded = 1;
               free_waiting(related->cache_unit);
-      	  }
-          related->is_host_done = 1;
-	  if(related->cache_unit != NULL)
+      	    }
+            related->is_host_done = 1;
+	    if(related->cache_unit != NULL)
 		related->cache_unit->is_valid = 0;
 			    return 2;
-        }
-        printf("error reading from remote host in while %s, total readed %d\n", related->url, count);
-        free_waiting(related->cache_unit);
-        related->is_host_done = 1;
-        return 1;
+          }
+          printf("error reading from remote host in while %s, total readed %d\n", related->url, count);
+          free_waiting(related->cache_unit);
+          related->is_host_done = 1;
+          return 1;
+    	}
+	if(readen == 0) {
+          if(related->cache_unit != NULL) {
+		related->cache_unit->is_downloaded = 1;
+        	free_waiting(related->cache_unit);
+      	  }
+	  related->is_host_done = 1;
+          return  1;
     }
-		if(readen == 0) {
-      if(related->cache_unit != NULL) {
-				related->cache_unit->is_downloaded = 1;
-        free_waiting(related->cache_unit);
-      }
-			related->is_host_done = 1;
-      return  1;
-		}
     buf[readen]='\0';
-		count+=readen;
-		if(related->cache_unit != NULL)
-			add_mes(related->cache_unit, buf, readen);
+    count+=readen;
+    if(related->cache_unit != NULL)
+	add_mes(related->cache_unit, buf, readen);
 
-		if(related->is_cli_alive == 1) {	
+    if(related->is_cli_alive == 1) {	
       if(write(client, buf, readen) < 0) {
               printf("can't write to client\n");
               related->is_cli_alive = 0;  
-	      }
-		}
+      }
+    }
 
   if(related->cache_unit != NULL)
       transfer_to_waiters(related->cache_unit);
@@ -801,13 +773,13 @@ int main(int argc, char* argv[]) {
 	memset(fds, -1, sizeof(fds));
 	fds[0].fd = sc;
   	fds[0].events = POLLIN;
-	int timeout = 1*60*1000, nfd = 1, size_copy, j;
+	int nfd = 1, size_copy, j;
 
 	struct ClientHostList* head;
 	head = (struct ClientHostList*)malloc(sizeof(struct ClientHostList));
 	head->client = -1;
 	head->remote_host = -1;
-  head->cache_unit = NULL;
+  	head->cache_unit = NULL;
 	head->next = NULL;
 	struct ClientHostList* last;
 	last = head;
@@ -854,10 +826,10 @@ int main(int argc, char* argv[]) {
 					new_client->next=NULL;
 					new_client->url = NULL;
 					new_client->is_cli_alive = 1;
-          new_client->is_host_done = 1;
-          new_client->is_host_done = 0;
+          				new_client->is_host_done = 1;
+          				new_client->is_host_done = 0;
 
-          last->next = new_client;
+          				last->next = new_client;
 					last = new_client;
         
 					printf("accepting sucess %d, nfd=%d\n", client, nfd);
@@ -872,94 +844,93 @@ int main(int argc, char* argv[]) {
 					if(prev == NULL) {
 						printf("prev is null\n");
 						fds[i].fd = -1;
-            nfd = evacuate_fds(fds);
+            					nfd = evacuate_fds(fds);
 						continue;
 					}
 					struct ClientHostList* related = prev->next;
-          if(related == NULL) {
-            fds[i].fd = -1;
-            nfd = evacuate_fds(fds);
+          				if(related == NULL) {
+            					fds[i].fd = -1;
+            					nfd = evacuate_fds(fds);
 						continue;
-          }
+          				}
 
 					if(related->client == fds[i].fd) {
-
 						printf("message came for %d (to host), and host is %d, client %d\n\n", fds[i].fd, related->remote_host);
-            if(related->remote_host > 0) {
-              for(j = 0; j < nfd; j++) {
-                if(fds[j].fd == related->remote_host) {
-                  close(fds[j].fd);
-                  fds[j].fd=-1;
-                 }
-              }
-               related->remote_host = -1;
-            	related->is_host_done = 1;
-		if(related->cache_unit != NULL)
-			related->cache_unit->is_downloaded = 1;
-		related->cache_unit = NULL;
-	    }
+            					if(related->remote_host > 0) {
+              						for(j = 0; j < nfd; j++) {
+                					if(fds[j].fd == related->remote_host) {
+                  					close(fds[j].fd);
+                  					fds[j].fd=-1;
+                 				}
+              				}
+               				related->remote_host = -1;
+            				related->is_host_done = 1;
+					if(related->cache_unit != NULL)
+						related->cache_unit->is_downloaded = 1;
+					related->cache_unit = NULL;
+	    		}
 
-            if((ret =  transfer_to_remote(related, fds, nfd))== -1) {
-							printf("close client %d\n", fds[i].fd);
-							close(related->client);
-							fds[i].fd = -1;
-              related->is_cli_alive = 0;
+            	if((ret =  transfer_to_remote(related, fds, nfd))== -1) {
+			printf("close client %d\n", fds[i].fd);
+			close(related->client);
+			fds[i].fd = -1;
+              		related->is_cli_alive = 0;
 
-              if(related->is_host_done == 1) {
-							for(j = 0; j < nfd; j++) {
-                if(fds[j].fd == related->remote_host) {
-                  close(fds[j].fd);
-                  fds[j].fd=-1;
-                 }
-              }
-              related->remote_host = -1;
-              last = remove_conn_info(fds, i, prev, related, last);
-              }
-						}
-						if(ret == 0) {
-							//we added host
-              related->is_host_done = 0;
-							nfd++;
-						}
-					}
-					else {
-					//	printf("message came for %d (back to cli)\n\n", fds[i].fd);
-						if(related->remote_host == fds[i].fd) {
-							ret = transfer_back(related);
-							if(ret != 2) {
-                printf("host conn delete\n");
-              	close(fds[i].fd);
-							  fds[i].fd=-1;
-							  related->remote_host = -1;
+              		if(related->is_host_done == 1) {
+				for(j = 0; j < nfd; j++) {
+                			if(fds[j].fd == related->remote_host) {
+                  				close(fds[j].fd);
+                  				fds[j].fd=-1;
+                 			}
+              			}
+              			related->remote_host = -1;
+              			last = remove_conn_info(fds, i, prev, related, last);
+              		}
+		}
+		if(ret == 0) {
+			//we added host
+              		related->is_host_done = 0;
+			nfd++;
+		}
+		}
+		else {
+		//	printf("message came for %d (back to cli)\n\n", fds[i].fd);
+			if(related->remote_host == fds[i].fd) {
+				ret = transfer_back(related);
+				if(ret != 2) {
+                			printf("host conn delete\n");
+              				close(fds[i].fd);
+					fds[i].fd=-1;
+					related->remote_host = -1;
 
-                if(related->is_cli_alive == 0) {
-							    for(j = 0; j < nfd; j++) {
-                    if(fds[j].fd == related->remote_host) {
-                      close(fds[j].fd);
-                      fds[j].fd=-1;
-                    }
-                    if(fds[j].fd == related->client) {
-                      related->client = -1;
-                      close(fds[j].fd);
-                      fds[j].fd=-1;
-                    }
-                  }
-                  related->remote_host = -1;
-                  last = remove_conn_info(fds, i, prev, related, last);
-                } 
-							}
-						}
-					else {
-						printf("can't find info about thist desc\n");
-					}
-					}
+               			   if(related->is_cli_alive == 0) {
+					for(j = 0; j < nfd; j++) {
+                    				if(fds[j].fd == related->remote_host) {
+                      					close(fds[j].fd);
+                      					fds[j].fd=-1;
+                    				}
+                    				if(fds[j].fd == related->client) {
+                      					related->client = -1;
+                      					close(fds[j].fd);
+                    					fds[j].fd=-1;
+                    				}
+                  			}
+                  			related->remote_host = -1;
+                  			last = remove_conn_info(fds, i, prev, related, last);
+                		  } 
+				}
+			}
+			else {
+				printf("can't find info about thist desc\n");
 			}
 		}
-		nfd = evacuate_fds(fds);
 	}
-	for(i = 0; i < nfd; i++) {
-		if(fds[i].fd >= 0) 
-			close(fds[i].fd);
-	}
-	return 0;
+   }
+   nfd = evacuate_fds(fds);
+   }
+  for(i = 0; i < nfd; i++) {
+	if(fds[i].fd >= 0) 
+		close(fds[i].fd);
+}
+return 0;
 }
