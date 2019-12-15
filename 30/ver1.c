@@ -79,7 +79,9 @@ void add_mes(struct CacheUnit* unit, char* mes, int mes_len) {
 	add_this->len = mes_len;
 	add_this->next = NULL;
 
+	printf("before mutex locks\n");
 	pthread_mutex_lock(&(unit->m));
+	printf("aftef\n");
 	unit->last_mes->next = add_this;
 	unit->last_mes = unit->last_mes->next;
 	pthread_mutex_unlock(&(unit->m));
@@ -544,6 +546,7 @@ int transfer_back(struct ClientHostList* related) {
               printf("Head mut Unlock\n");
             }
             add_mes(related->cache_unit, buf, readen);
+		printf("message added");
         }
       }
     }

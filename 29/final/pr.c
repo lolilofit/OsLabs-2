@@ -64,7 +64,6 @@ struct CacheUnit {
     int is_downloaded;
     struct WaitingOne* waiting;
         struct CacheUnit* next;
-//      int is_valid;
 };
 
 
@@ -92,13 +91,11 @@ struct CacheUnit* find_cache_by_url(struct Cache* cache, char* url) {
         printf("find in cache by url : %s, size %d\n", url, strlen(url));
         struct CacheUnit* cur = cache->units_head->next;
         while(cur != NULL) {
-        //      if(cur -> is_valid == 1) {
                 if(strcmp(url, cur->url) == 0) {
                         printf("FOUND in cache\n");
                         return cur;
                 }
                 cur = cur->next;
-        //      }
         }
         printf("not found\n");
         return NULL;
@@ -116,15 +113,14 @@ struct CacheUnit* init_cache_unit(int id, char* url) {
         cache_unit->mes_head->len = 0;
         cache_unit->url = url;
 
-  struct WaitingOne* head;
-  head = (struct WaitingOne*)malloc(sizeof(struct WaitingOne));
-  head->next = NULL;
-  head->fd = -1;
-  head->blocks_transfered = 0;
-  cache_unit->waiting = head;
+  	struct WaitingOne* head;
+  	head = (struct WaitingOne*)malloc(sizeof(struct WaitingOne));
+  	head->next = NULL;
+  	head->fd = -1;
+  	head->blocks_transfered = 0;
+	cache_unit->waiting = head;
 
-//      cache_unit->is_valid = 1;
-        return cache_unit;
+    	return cache_unit;
 }
 
 
@@ -687,21 +683,18 @@ int transfer_back(struct ClientHostList* related) {
           if(errno == EWOULDBLOCK) {
             if(related->cache_unit != NULL) {
               related->cache_unit->is_downloaded = 1;
-         //     free_waiting(related->cache_unit);
             }
             related->is_host_done = 1;
             return 2;
           }
           if(related->url != NULL)
                 printf("error reading from remote host in while %s, total readed %d\n", related->url, count);
-      //    free_waiting(related->cache_unit);
           related->is_host_done = 1;
           return 1;
         }
         if(readen == 0) {
           if(related->cache_unit != NULL) {
                 related->cache_unit->is_downloaded = 1;
-       //       free_waiting(related->cache_unit);
           }
           related->is_host_done = 1;
           return  1;
@@ -730,6 +723,8 @@ struct ClientHostList* remove_conn_info(struct pollfd* fds, int i, struct Client
     if(related != NULL) {
         struct ClientHostList* tmp = related->next;
         prev->next = tmp;
+	if(related->cache_unit != NULL) 
+		free(related->url);
         free(related);
         if(tmp == NULL)
           return prev;
