@@ -96,17 +96,22 @@ struct CacheUnit* find_cache_by_url(struct Cache* cache, char* url) {
 	struct CacheUnit* prev;
 	if(cur != NULL)
 		pthread_mutex_lock(&(cur->m));
+    printf("mut lock\n");
         while(cur != NULL) {
             if(strcmp(url, cur->url) == 0) {
 			        printf("FOUND in cache\n");
-			      pthread_mutex_unlock(&(cur->m));
-            return cur;
-		      }
+			        pthread_mutex_unlock(&(cur->m));
+              printf("mut Unlock\n");
+              return cur;
+		        }
 		      prev = cur;
-                cur = cur->next;
-		    pthread_mutex_unlock(&(prev->m));
-		    if(cur != NULL)
+          cur = cur->next;
+		      pthread_mutex_unlock(&(prev->m));
+          printf("mut Unlock\n");
+		    if(cur != NULL) {
 			    pthread_mutex_lock(&(cur->m));
+          printf("mut lock\n");
+        }
       }
       printf("not found\n");
       return NULL;
@@ -140,35 +145,45 @@ struct Cache* init_cache(struct Cache* cache) {
 struct CacheUnit* add_cache_unit(struct Cache* cache, char* url, struct CacheUnit* cache_unit) {
   //struct CacheUnit* cache_unit = NULL;
 	pthread_mutex_lock(&(cache->units_head->m));
-	struct CacheUnit* cur =  cache->units_head->next;
+	printf("add_cache_unit lock\n");
+  struct CacheUnit* cur =  cache->units_head->next;
 
 	if(cur == NULL) {
     //  cache_unit = init_cache_unit(id, url);
       cache->units_head->next = cache_unit;
 			pthread_mutex_unlock(&(cache->units_head->m));
+      printf("add_cache_unit Unlock\n");
       return cache_unit;
 	}
 	pthread_mutex_unlock(&(cache->units_head->m));
+  printf("add_cache_unit Unlock\n");
 
 	struct CacheUnit* prev;
-	if(cur != NULL)
-		pthread_mutex_lock(&(cur->m));
-	while(cur != NULL) {
+	if(cur != NULL) {
+  	pthread_mutex_lock(&(cur->m));
+    printf("add_cache_unit lock\n");
+  }
+  while(cur != NULL) {
 		if(strcmp(cur->url, url) == 0) {
 			 pthread_mutex_unlock(&(cur->m));
+       printf("add_cache_unit Unlock\n");
 			return NULL;
 		}
 		if(cur->next == NULL) {
 			cache_unit = init_cache_unit(url);
 			cur->next = cache_unit;
 			pthread_mutex_unlock(&(cur->m));
+      printf("add_cache_unit Unlock\n");
 			return cache_unit;
 		}
 		prev = cur;
 		cur = cur->next;
 		pthread_mutex_unlock(&(prev->m));
-		if(cur != NULL)
+    printf("add_cache_unit Unlock\n");
+		if(cur != NULL) {
 			pthread_mutex_lock(&(cur->m));
+      printf("add_cache_unit lock\n");
+    }
 	}
 	
 	return cache_unit;
@@ -342,26 +357,38 @@ int transfer_cached(struct CacheUnit* cache_unit, int client) {
   }
 
 	pthread_mutex_lock(&(cache_unit->m));
+  printf("trans_cached beg lock");
   pthread_mutex_lock(&(cache_unit->mes_head->list_m));
+  printf("trans_cached lock");
   struct List* cur = cache_unit -> mes_head->next;
   pthread_mutex_unlock(&(cache_unit->mes_head->list_m));
+  printf("trans_cached unlock");
 
-  if(cur != NULL)
+  if(cur != NULL) {
     pthread_mutex_lock(&(cur->list_m)); 
+    printf("trans_cached unlock");
+  }
   while(cur != NULL) {
 		  if(write(client, cur->str, cur->len) < 0) {
           printf("can't write to remote host\n");
+          pthread_mutex_unlock(&(cur->list_m));
+          printf("trans_cached unlock");
           pthread_mutex_unlock(&(cache_unit->m));
+          printf("trans_cached unlock");
           return -1;
       }
       struct List* prev = cur;
       cur = cur->next;
       pthread_mutex_unlock(&(prev->list_m));
-      if(cur != NULL)
+      printf("trans_cached unlock");
+      if(cur != NULL) {
         pthread_mutex_lock(&(cur->list_m));
-	}
+        printf("trans_cached lock");
+      }
+  }
 
   pthread_mutex_unlock(&(cache_unit->m));
+  printf("trans_cached final unlock");
 	return 0;
 }
 
