@@ -538,6 +538,7 @@ int transfer_back(struct ClientHostList* related) {
               printf("Head mut lock\n");
             }
             related->cache_unit = add_cache_unit(cache, related->url, cache_unit);
+            printf("adding finished\n");
             if(related->cache_unit == NULL) {
                pthread_mutex_unlock(&(cache_unit->mes_head->list_m));
               printf("Head mut Unlock\n");
@@ -550,7 +551,9 @@ int transfer_back(struct ClientHostList* related) {
   
   while(1) {
       buf[0] = '\0';
+      printf("Let's read\n");
       readen = read(remote_host, buf, MAX_HEADER_SIZE+MAX_BODY_SIZE);
+      printf("Read finished\n");
       if(readen < 0) {
           if(related->url != NULL)
                 printf("error reading from remote host in while %s, total readed %d\n", related->url);
