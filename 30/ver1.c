@@ -128,6 +128,15 @@ struct CacheUnit* init_cache_unit(char* url) {
 }
 
 
+struct Cache* init_cache(struct Cache* cache) {
+  cache = (struct Cache*)malloc(sizeof(struct Cache));
+  cache->max_id = 0;
+  char* head_mes = (char*)malloc(sizeof(char));
+  head_mes[0] = '\0';
+  cache->units_head = init_cache_unit(head_mes);
+  return cache;
+}
+
 struct CacheUnit* add_cache_unit(struct Cache* cache, char* url, struct CacheUnit* cache_unit) {
   //struct CacheUnit* cache_unit = NULL;
 	pthread_mutex_lock(&(cache->units_head->m));
