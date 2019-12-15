@@ -92,24 +92,24 @@ struct CacheUnit* find_cache_by_url(struct Cache* cache, char* url) {
 	struct CacheUnit* cur = cache->units_head->next;
 	pthread_mutex_unlock(&(cache->units_head->m));
 
-	printf("head m lock\n");
+	//printf("head m lock\n");
 	struct CacheUnit* prev;
 	if(cur != NULL)
 		pthread_mutex_lock(&(cur->m));
         while(cur != NULL) {
-                if(strcmp(url, cur->url) == 0) {
-			printf("FOUND in cache\n");
-			pthread_mutex_unlock(&(cur->m));
-            		return cur;
-		}
-		prev = cur;
+            if(strcmp(url, cur->url) == 0) {
+			        printf("FOUND in cache\n");
+			      pthread_mutex_unlock(&(cur->m));
+            return cur;
+		      }
+		      prev = cur;
                 cur = cur->next;
-		pthread_mutex_unlock(&(prev->m));
-		if(cur != NULL)
-			pthread_mutex_lock(&(cur->m));
-        }
-	printf("not found\n");
-        return NULL;
+		    pthread_mutex_unlock(&(prev->m));
+		    if(cur != NULL)
+			    pthread_mutex_lock(&(cur->m));
+      }
+      printf("not found\n");
+      return NULL;
 }
 
 
@@ -533,12 +533,15 @@ int transfer_back(struct ClientHostList* related) {
             printf("let's add to cache\n");
             (cache->max_id)++;
             struct CacheUnit* cache_unit = init_cache_unit(related->url);
-            if(cache_unit != NULL)
+            if(cache_unit != NULL) {
               pthread_mutex_lock(&(cache_unit->mes_head->list_m));
+              printf("Head mut lock\n");
+            }
             related->cache_unit = add_cache_unit(cache, related->url, cache_unit);
-            if(related->cache_unit == NULL)
+            if(related->cache_unit == NULL) {
                pthread_mutex_unlock(&(cache_unit->mes_head->list_m));
-
+              printf("Head mut Unlock\n");
+            }
             add_mes(related->cache_unit, buf, readen);
         }
       }
@@ -551,13 +554,17 @@ int transfer_back(struct ClientHostList* related) {
       if(readen < 0) {
           if(related->url != NULL)
                 printf("error reading from remote host in while %s, total readed %d\n", related->url);
-          if(related->cache_unit != NULL)
+          if(related->cache_unit != NULL) {
             pthread_mutex_unlock(&(related->cache_unit->mes_head->list_m));
+            printf("Head mut Unlock\n");
+          }
           return 1;
       }
       if(readen == 0) {
-          if(related->cache_unit != NULL)
+          if(related->cache_unit != NULL) {
             pthread_mutex_unlock(&(related->cache_unit->mes_head->list_m));
+            printf("Head mut Unlock\n");
+          }
           return  1;
     }
     buf[readen]='\0';
