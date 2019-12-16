@@ -360,8 +360,8 @@ int transfer_cached(struct CacheUnit* cache_unit, int client) {
     return 0;
   }
 
-	pthread_mutex_lock(&(cache_unit->m));
-  //printf("trans_cached beg lock");
+//	pthread_mutex_lock(&(cache_unit->m));
+  
   pthread_mutex_lock(&(cache_unit->mes_head->list_m));
   //printf("trans_cached lock");
   struct List* cur = cache_unit -> mes_head->next;
@@ -377,8 +377,6 @@ int transfer_cached(struct CacheUnit* cache_unit, int client) {
     //      printf("can't write to remote host\n");
           pthread_mutex_unlock(&(cur->list_m));
       //    printf("trans_cached unlock");
-          pthread_mutex_unlock(&(cache_unit->m));
-        //  printf("trans_cached unlock");
           return -1;
       }
       struct List* prev = cur;
@@ -391,7 +389,7 @@ int transfer_cached(struct CacheUnit* cache_unit, int client) {
       }
   }
 
-  pthread_mutex_unlock(&(cache_unit->m));
+  //pthread_mutex_unlock(&(cache_unit->m));
   //printf("trans_cached final unlock");
 	return 0;
 }
