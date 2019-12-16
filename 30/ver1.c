@@ -79,10 +79,10 @@ void add_mes(struct CacheUnit* unit, char* mes, int mes_len) {
 	add_this->len = mes_len;
 	add_this->next = NULL;
 
-	pthread_mutex_lock(&(unit->m));
+	//pthread_mutex_lock(&(unit->m));
 	unit->last_mes->next = add_this;
 	unit->last_mes = unit->last_mes->next;
-	pthread_mutex_unlock(&(unit->m));
+	//pthread_mutex_unlock(&(unit->m));
 }
 
 
