@@ -108,6 +108,7 @@ struct CacheUnit* find_cache_by_url(struct Cache* cache, char* url) {
 		pthread_mutex_lock(&(cur->m));
 //    printf("mut lock\n");
         while(cur != NULL) {
+          printf("compare\n");
             if(strcmp(url, cur->url) == 0) {
 			        printf("FOUND in cache\n");
 			        pthread_mutex_unlock(&(cur->m));
@@ -162,37 +163,37 @@ struct CacheUnit* add_cache_unit(struct Cache* cache, char* url, struct CacheUni
     //  cache_unit = init_cache_unit(id, url);
       cache->units_head->next = cache_unit;
 			pthread_mutex_unlock(&(cache->units_head->m));
-//      printf("add_cache_unit Unlock\n");
+      printf("add_cache_unit Unlock\n");
       return cache_unit;
 	}
 	pthread_mutex_unlock(&(cache->units_head->m));
-  //printf("add_cache_unit Unlock\n");
+  printf("add_cache_unit Unlock\n");
 
 	struct CacheUnit* prev;
 	if(cur != NULL) {
   	pthread_mutex_lock(&(cur->m));
-   // printf("add_cache_unit lock\n");
+    printf("add_cache_unit lock\n");
   }
   while(cur != NULL) {
 		if(strcmp(cur->url, url) == 0) {
 			 pthread_mutex_unlock(&(cur->m));
-     //  printf("add_cache_unit Unlock\n");
+       printf("add_cache_unit Unlock\n");
 			return NULL;
 		}
 		if(cur->next == NULL) {
 			cache_unit = init_cache_unit(url);
 			cur->next = cache_unit;
 			pthread_mutex_unlock(&(cur->m));
-     // printf("add_cache_unit Unlock\n");
+      printf("add_cache_unit Unlock\n");
 			return cache_unit;
 		}
 		prev = cur;
 		cur = cur->next;
 		pthread_mutex_unlock(&(prev->m));
-    //printf("add_cache_unit Unlock\n");
+    printf("add_cache_unit Unlock\n");
 		if(cur != NULL) {
 			pthread_mutex_lock(&(cur->m));
-      //printf("add_cache_unit lock\n");
+      printf("add_cache_unit lock\n");
     }
 	}
 	
