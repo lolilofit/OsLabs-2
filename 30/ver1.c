@@ -80,12 +80,18 @@ void add_mes(struct CacheUnit* unit, char* mes, int mes_len) {
 	add_this->len = mes_len;
 	add_this->next = NULL;
 
+  if(unit->last_mes != unit->mes_head) {
 	pthread_mutex_lock(&(unit->last_mes->m));
 	pthread_mutex_t* mut = &(unit->last_mes->m);
 
 	unit->last_mes->next = add_this;
 	unit->last_mes = unit->last_mes->next;
 	pthread_mutex_unlock(mut);
+  }
+  else {
+    unit->last_mes->next = add_this;
+	  unit->last_mes = unit->last_mes->next;  
+  }
 	printf("add mes end\n");
 }
 
@@ -360,14 +366,11 @@ int transfer_cached(struct CacheUnit* cache_unit, int client) {
     return 0;
   }
 
-	pthread_mutex_lock(&(cache_unit->m));
-  //printf("trans_cached beg lock");
-  pthread_mutex_lock(&(cache_unit->mes_head->list_m));
+   pthread_mutex_lock(&(cache_unit->mes_head->list_m));
   //printf("trans_cached lock");
   struct List* cur = cache_unit -> mes_head->next;
   pthread_mutex_unlock(&(cache_unit->mes_head->list_m));
- // printf("trans_cached unlock");
-
+ 
   if(cur != NULL) {
     pthread_mutex_lock(&(cur->list_m)); 
     printf("trans_cached unlock");
@@ -377,8 +380,6 @@ int transfer_cached(struct CacheUnit* cache_unit, int client) {
     //      printf("can't write to remote host\n");
           pthread_mutex_unlock(&(cur->list_m));
       //    printf("trans_cached unlock");
-          pthread_mutex_unlock(&(cache_unit->m));
-        //  printf("trans_cached unlock");
           return -1;
       }
       struct List* prev = cur;
@@ -390,10 +391,7 @@ int transfer_cached(struct CacheUnit* cache_unit, int client) {
        // printf("trans_cached lock");
       }
   }
-
-  pthread_mutex_unlock(&(cache_unit->m));
-  //printf("trans_cached final unlock");
-	return 0;
+  return 0;
 }
 
 void resolveEmtyHost(struct HttpParams* param) {
@@ -562,22 +560,18 @@ int transfer_back(struct ClientHostList* related) {
     struct CacheUnit* found = find_cache_by_url(cache, related->url);
     if(found == NULL) {
         if(atoi(ans->status) == 200) {
-    //        printf("let's add to cache\n");
+          printf("let's add to cache\n");
             (cache->max_id)++;
             struct CacheUnit* cache_unit = init_cache_unit(related->url);
             if(cache_unit != NULL) {
               pthread_mutex_lock(&(cache_unit->mes_head->list_m));
-      //        printf("Head mut lock\n");
             }
             related->cache_unit = add_cache_unit(cache, related->url, cache_unit);
-        //    printf("adding finished\n");
             if(related->cache_unit == NULL) {
                pthread_mutex_unlock(&(cache_unit->mes_head->list_m));
-          //    printf("Head mut Unlock\n");
             }
             add_mes(related->cache_unit, buf, readen);
-	//	printf("message added");
-        }
+	      }
       }
     }
   free(ans);
@@ -592,8 +586,7 @@ int transfer_back(struct ClientHostList* related) {
                 printf("error reading from remote host in while %s, total readed %d\n", related->url);
           if(related->cache_unit != NULL) {
             pthread_mutex_unlock(&(related->cache_unit->mes_head->list_m));
-     //       printf("Head mut Unlock\n");
-  	  }
+  	      }
           return 1;
       }
       if(readen == 0) {
