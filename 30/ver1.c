@@ -82,11 +82,13 @@ void add_mes(struct CacheUnit* unit, char* mes, int mes_len) {
 
   if(unit->last_mes != unit->mes_head) {
 	pthread_mutex_lock(&(unit->last_mes->list_m));
-	pthread_mutex_t* mut = &(unit->last_mes->list_m);
+	//pthread_mutex_t* mut = &(unit->last_mes->list_m);
+  struct List* saved = unit->last_mes;
 
 	unit->last_mes->next = add_this;
 	unit->last_mes = unit->last_mes->next;
-	pthread_mutex_unlock(mut);
+	pthread_mutex_unlock(&(saved->list_m));
+  //pthread_mutex_unlock(mut);
   }
   else {
     unit->last_mes->next = add_this;
@@ -98,32 +100,36 @@ void add_mes(struct CacheUnit* unit, char* mes, int mes_len) {
 
 struct CacheUnit* find_cache_by_url(struct Cache* cache, char* url) {
 	printf("find in cache by url : %s, size %d\n", url, strlen(url));
-	pthread_mutex_lock(&(cache->units_head->m));
-	struct CacheUnit* cur = cache->units_head->next;
+	if(pthread_mutex_lock(&(cache->units_head->m)) != 0) {
+    printf("SOMETING WRONG wit mutex\n");
+  }
+	//printf("find in cache head locked\n");
+  struct CacheUnit* cur = cache->units_head->next;
 	pthread_mutex_unlock(&(cache->units_head->m));
+  //printf("find in cache head unlocked\n");
 
 	//printf("head m lock\n");
 	struct CacheUnit* prev;
 	if(cur != NULL)
 		pthread_mutex_lock(&(cur->m));
-//    printf("mut lock\n");
+    //printf("find mut lock\n");
         while(cur != NULL) {
           printf("compare\n");
-            if(strcmp(url, cur->url) == 0) {
-			        printf("FOUND in cache\n");
-			        pthread_mutex_unlock(&(cur->m));
-  //            printf("mut Unlock\n");
-              return cur;
-		        }
+          if(strcmp(url, cur->url) == 0) {
+			      printf("FOUND in cache\n");
+			      pthread_mutex_unlock(&(cur->m));
+      //        printf("find mut Unlock\n");
+            return cur;
+		      }
 		      prev = cur;
           cur = cur->next;
-		      pthread_mutex_unlock(&(prev->m));
-    //      printf("mut Unlock\n");
-		    if(cur != NULL) {
-			    pthread_mutex_lock(&(cur->m));
-      //    printf("mut lock\n");
+        //  printf("find mut Unlock\n");
+		      if(cur != NULL) {
+			      pthread_mutex_lock(&(cur->m));
+          //  printf("find mut lock\n");
+          }
+          pthread_mutex_unlock(&(prev->m));
         }
-      }
       printf("not found\n");
       return NULL;
 }
@@ -156,18 +162,18 @@ struct Cache* init_cache(struct Cache* cache) {
 struct CacheUnit* add_cache_unit(struct Cache* cache, char* url, struct CacheUnit* cache_unit) {
   //struct CacheUnit* cache_unit = NULL;
 	pthread_mutex_lock(&(cache->units_head->m));
-	printf("add_cache_unit lock\n");
+	//printf("add_cache_unit head lock\n");
   struct CacheUnit* cur =  cache->units_head->next;
 
 	if(cur == NULL) {
     //  cache_unit = init_cache_unit(id, url);
       cache->units_head->next = cache_unit;
 			pthread_mutex_unlock(&(cache->units_head->m));
-      printf("add_cache_unit Unlock\n");
+    //  printf("add_cache_unit Unlock\n");
       return cache_unit;
 	}
 	pthread_mutex_unlock(&(cache->units_head->m));
-  printf("add_cache_unit Unlock\n");
+  //printf("add_cache_unit Unlock\n");
 
 	struct CacheUnit* prev;
 	if(cur != NULL) {
@@ -189,12 +195,12 @@ struct CacheUnit* add_cache_unit(struct Cache* cache, char* url, struct CacheUni
 		}
 		prev = cur;
 		cur = cur->next;
-		pthread_mutex_unlock(&(prev->m));
-    printf("add_cache_unit Unlock\n");
-		if(cur != NULL) {
+    if(cur != NULL) {
 			pthread_mutex_lock(&(cur->m));
-      printf("add_cache_unit lock\n");
+    //  printf("add_cache_unit lock\n");
     }
+		pthread_mutex_unlock(&(prev->m));
+    //printf("add_cache_unit Unlock\n");
 	}
 	
 	return cache_unit;
@@ -367,9 +373,13 @@ int transfer_cached(struct CacheUnit* cache_unit, int client) {
     return 0;
   }
 
+<<<<<<< HEAD
 
    pthread_mutex_lock(&(cache_unit->mes_head->list_m));
 
+=======
+  pthread_mutex_lock(&(cache_unit->mes_head->list_m));
+>>>>>>> c46c39888ae9397af0c7a0f230262e614556d7c0
   //printf("trans_cached lock");
   struct List* cur = cache_unit -> mes_head->next;
   pthread_mutex_unlock(&(cache_unit->mes_head->list_m));
