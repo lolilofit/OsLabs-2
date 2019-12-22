@@ -406,7 +406,7 @@ int transfer_cached(struct CacheUnit* cache_unit, int client) {
         pthread_mutex_lock(&(cur->list_m));
        // printf("trans_cached lock");
       }
-      pthread_mutex_unlock(&(cache_unit->mes_head->list_m));
+      pthread_mutex_unlock(&(prev->list_m));
   }
 
   //pthread_mutex_unlock(&(cache_unit->m));
