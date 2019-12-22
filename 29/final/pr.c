@@ -384,7 +384,20 @@ struct ClientHostList* find_related(struct ClientHostList* head, int find_him) {
 
 
 int transfer_cached(struct CacheUnit* cache_unit, int client) {
-        if(cache_unit == NULL) {
+        printf("transfer to particular waiter\n");
+         struct List* cur = cache_unit -> mes_head->next;
+                while(cur != NULL) {
+                        if(write(client, cur->str, cur->len) < 0) {
+                                printf("can't write to remote host\n");
+                                return -1;
+                        }
+                        cur = cur->next;
+                }
+        return 0;
+}
+
+int transfer_quest(struct CacheUnit* cache_unit, int client) {
+          if(cache_unit == NULL) {
         printf("null cache\n");
         return -1;
   }
@@ -419,8 +432,8 @@ int transfer_cached(struct CacheUnit* cache_unit, int client) {
         }
         //printf("transfer to waiters end\n");
         return 0;
-}
 
+}
 
 int transfer_to_waiters(struct CacheUnit* cache_unit) {
         //printf("transfer to waiters\n");
@@ -606,6 +619,7 @@ int transfer_to_remote(struct ClientHostList* related, struct pollfd* fds, int n
       }
       else {
         add_waiting(found, client);
+        transfer_quest(found, client);
                           related->remote_host = -1;
                           related->cache_unit = NULL;
                           return 1;
