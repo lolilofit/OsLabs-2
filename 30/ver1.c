@@ -82,11 +82,13 @@ void add_mes(struct CacheUnit* unit, char* mes, int mes_len) {
 
   if(unit->last_mes != unit->mes_head) {
 	pthread_mutex_lock(&(unit->last_mes->list_m));
-	pthread_mutex_t* mut = &(unit->last_mes->list_m);
+	//pthread_mutex_t* mut = &(unit->last_mes->list_m);
+  struct List* saved = unit->last_mes;
 
 	unit->last_mes->next = add_this;
 	unit->last_mes = unit->last_mes->next;
-	pthread_mutex_unlock(mut);
+	pthread_mutex_unlock(&(saved->list_m));
+  //pthread_mutex_unlock(mut);
   }
   else {
     unit->last_mes->next = add_this;
@@ -98,32 +100,36 @@ void add_mes(struct CacheUnit* unit, char* mes, int mes_len) {
 
 struct CacheUnit* find_cache_by_url(struct Cache* cache, char* url) {
 	printf("find in cache by url : %s, size %d\n", url, strlen(url));
-	pthread_mutex_lock(&(cache->units_head->m));
-	struct CacheUnit* cur = cache->units_head->next;
+	if(pthread_mutex_lock(&(cache->units_head->m)) != 0) {
+    printf("SOMETING WRONG wit mutex\n");
+  }
+	print("find in cache head locked\n");
+  struct CacheUnit* cur = cache->units_head->next;
 	pthread_mutex_unlock(&(cache->units_head->m));
+  print("find in cache head unlocked\n");
 
 	//printf("head m lock\n");
 	struct CacheUnit* prev;
 	if(cur != NULL)
 		pthread_mutex_lock(&(cur->m));
-//    printf("mut lock\n");
+    printf("find mut lock\n");
         while(cur != NULL) {
           printf("compare\n");
-            if(strcmp(url, cur->url) == 0) {
-			        printf("FOUND in cache\n");
-			        pthread_mutex_unlock(&(cur->m));
-  //            printf("mut Unlock\n");
-              return cur;
-		        }
+          if(strcmp(url, cur->url) == 0) {
+			      printf("FOUND in cache\n");
+			      pthread_mutex_unlock(&(cur->m));
+              printf("find mut Unlock\n");
+            return cur;
+		      }
 		      prev = cur;
           cur = cur->next;
 		      pthread_mutex_unlock(&(prev->m));
-    //      printf("mut Unlock\n");
-		    if(cur != NULL) {
-			    pthread_mutex_lock(&(cur->m));
-      //    printf("mut lock\n");
+          printf("find mut Unlock\n");
+		      if(cur != NULL) {
+			      pthread_mutex_lock(&(cur->m));
+            printf("find mut lock\n");
+          }
         }
-      }
       printf("not found\n");
       return NULL;
 }
@@ -156,7 +162,7 @@ struct Cache* init_cache(struct Cache* cache) {
 struct CacheUnit* add_cache_unit(struct Cache* cache, char* url, struct CacheUnit* cache_unit) {
   //struct CacheUnit* cache_unit = NULL;
 	pthread_mutex_lock(&(cache->units_head->m));
-	printf("add_cache_unit lock\n");
+	printf("add_cache_unit head lock\n");
   struct CacheUnit* cur =  cache->units_head->next;
 
 	if(cur == NULL) {
@@ -367,7 +373,7 @@ int transfer_cached(struct CacheUnit* cache_unit, int client) {
     return 0;
   }
 
-   pthread_mutex_lock(&(cache_unit->mes_head->list_m));
+  pthread_mutex_lock(&(cache_unit->mes_head->list_m));
   //printf("trans_cached lock");
   struct List* cur = cache_unit -> mes_head->next;
   pthread_mutex_unlock(&(cache_unit->mes_head->list_m));
