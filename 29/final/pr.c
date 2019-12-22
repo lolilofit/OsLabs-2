@@ -396,7 +396,7 @@ int transfer_cached(struct CacheUnit* cache_unit, int client) {
         return 0;
 }
 
-int transfer_quest(struct CacheUnit* cache_unit, int client) {
+int transfer_quest(struct CacheUnit* cache_unit, int client_fd) {
           if(cache_unit == NULL) {
         printf("null cache\n");
         return -1;
@@ -410,7 +410,7 @@ int transfer_quest(struct CacheUnit* cache_unit, int client) {
   struct WaitingOne* prev;
 
   while(client != NULL) {
-      if(client->fd == client) {
+      if(client->fd == client_fd) {
         struct List* cur = cache_unit -> mes_head->next;
         int count = 0;
         printf("transfer to cli %d blocks %d\n", client->fd, client->blocks_transfered);
