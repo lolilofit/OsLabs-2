@@ -103,10 +103,10 @@ struct CacheUnit* find_cache_by_url(struct Cache* cache, char* url) {
 	if(pthread_mutex_lock(&(cache->units_head->m)) != 0) {
     printf("SOMETING WRONG wit mutex\n");
   }
-	print("find in cache head locked\n");
+	printf("find in cache head locked\n");
   struct CacheUnit* cur = cache->units_head->next;
 	pthread_mutex_unlock(&(cache->units_head->m));
-  print("find in cache head unlocked\n");
+  printf("find in cache head unlocked\n");
 
 	//printf("head m lock\n");
 	struct CacheUnit* prev;
