@@ -167,35 +167,30 @@ struct CacheUnit* add_cache_unit(struct Cache* cache, char* url, struct CacheUni
   struct CacheUnit* cur =  cache->units_head->next;
 
 	if(cur == NULL) {
-    	  //cache_unit = init_cache_unit(id, url);
-      	cache->units_head->next = cache_unit;
+    	 	cache->units_head->next = cache_unit;
 	      pthread_mutex_unlock(&(cache->units_head->m));
     //  printf("add_cache_unit Unlock\n");
       return cache_unit;
 	}
-  cache->units_head->next = cache_unit;
-  cache-_unit->next = cur;
-  pthread_mutex_unlock(&(cache->units_head->m));
-  /*
+  
   //printf("add_cache_unit Unlock\n");
   struct CacheUnit* prev;
   if(cur != NULL) {
   	pthread_mutex_lock(&(cur->m));
-   	printf("add_cache_unit lock\n");
+  // 	printf("add_cache_unit lock\n");
   }
   pthread_mutex_unlock(&(cache->units_head->m));
 
   while(cur != NULL) {
 		if(strcmp(cur->url, url) == 0) {
 			 pthread_mutex_unlock(&(cur->m));
-       printf("add_cache_unit Unlock\n");
+    //   printf("add_cache_unit Unlock\n");
 			return NULL;
 		}
 		if(cur->next == NULL) {
-			cache_unit = init_cache_unit(url);
 			cur->next = cache_unit;
 			pthread_mutex_unlock(&(cur->m));
-      printf("add_cache_unit Unlock\n");
+      //printf("add_cache_unit Unlock\n");
 			return cache_unit;
 		}
 		prev = cur;
@@ -207,7 +202,7 @@ struct CacheUnit* add_cache_unit(struct Cache* cache, char* url, struct CacheUni
 		pthread_mutex_unlock(&(prev->m));
     //printf("add_cache_unit Unlock\n");
 	}
-	*/
+	
 	return cache_unit;
 }
 
@@ -571,8 +566,8 @@ int transfer_back(struct ClientHostList* related) {
   if(related->url != NULL)
     printf("answer is: %d, url: %s, client %d, host %d\n", atoi(ans->status), related->url, related->client, related->remote_host);
   if(related->should_cache == 1) {
-    struct CacheUnit* found = find_cache_by_url(cache, related->url);
-    if(found == NULL) {
+    //struct CacheUnit* found = find_cache_by_url(cache, related->url);
+    //if(found == NULL) {
         if(atoi(ans->status) == 200) {
           printf("let's add to cache\n");
             (cache->max_id)++;
@@ -586,7 +581,7 @@ int transfer_back(struct ClientHostList* related) {
             }
             add_mes(related->cache_unit, buf, readen);
 	      }
-      }
+      //}
     }
   free(ans);
   
