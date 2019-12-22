@@ -91,6 +91,7 @@ struct CacheUnit* find_cache_by_url(struct Cache* cache, char* url) {
         printf("find in cache by url : %s, size %d\n", url, strlen(url));
         struct CacheUnit* cur = cache->units_head->next;
         while(cur != NULL) {
+		printf("compare %s and %s\n", url, cur->url);
                 if(strcmp(url, cur->url) == 0) {
                         printf("FOUND in cache\n");
                         return cur;
@@ -396,7 +397,7 @@ int transfer_cached(struct CacheUnit* cache_unit, int client) {
         return 0;
 }
 
-int transfer_quest(struct CacheUnit* cache_unit, int client) {
+int transfer_quest(struct CacheUnit* cache_unit, int client_fd) {
           if(cache_unit == NULL) {
         printf("null cache\n");
         return -1;
@@ -410,7 +411,7 @@ int transfer_quest(struct CacheUnit* cache_unit, int client) {
   struct WaitingOne* prev;
 
   while(client != NULL) {
-      if(client->fd == client) {
+      if(client->fd == client_fd) {
         struct List* cur = cache_unit -> mes_head->next;
         int count = 0;
         printf("transfer to cli %d blocks %d\n", client->fd, client->blocks_transfered);
