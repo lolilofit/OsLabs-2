@@ -101,17 +101,18 @@ void add_mes(struct CacheUnit* unit, char* mes, int mes_len) {
 struct CacheUnit* find_cache_by_url(struct Cache* cache, char* url) {
 	printf("find in cache by url : %s, size %d\n", url, strlen(url));
 	if(pthread_mutex_lock(&(cache->units_head->m)) != 0) {
-    printf("SOMETING WRONG wit mutex\n");
-  }
+    	printf("SOMETING WRONG wit mutex\n");
+  	}
 	//printf("find in cache head locked\n");
-  struct CacheUnit* cur = cache->units_head->next;
-	pthread_mutex_unlock(&(cache->units_head->m));
-  //printf("find in cache head unlocked\n");
+  	struct CacheUnit* cur = cache->units_head->next;
+  	//printf("find in cache head unlocked\n");
 
 	//printf("head m lock\n");
 	struct CacheUnit* prev;
 	if(cur != NULL)
 		pthread_mutex_lock(&(cur->m));
+	pthread_mutex_unlock(&(cache->units_head->m));
+
     //printf("find mut lock\n");
         while(cur != NULL) {
           printf("compare\n");
@@ -166,20 +167,22 @@ struct CacheUnit* add_cache_unit(struct Cache* cache, char* url, struct CacheUni
   struct CacheUnit* cur =  cache->units_head->next;
 
 	if(cur == NULL) {
-    //  cache_unit = init_cache_unit(id, url);
-      cache->units_head->next = cache_unit;
-			pthread_mutex_unlock(&(cache->units_head->m));
+    	  //cache_unit = init_cache_unit(id, url);
+      	  cache->units_head->next = cache_unit;
+	  pthread_mutex_unlock(&(cache->units_head->m));
     //  printf("add_cache_unit Unlock\n");
       return cache_unit;
 	}
-	pthread_mutex_unlock(&(cache->units_head->m));
+
   //printf("add_cache_unit Unlock\n");
 
-	struct CacheUnit* prev;
-	if(cur != NULL) {
+  struct CacheUnit* prev;
+  if(cur != NULL) {
   	pthread_mutex_lock(&(cur->m));
-    printf("add_cache_unit lock\n");
+   	printf("add_cache_unit lock\n");
   }
+  pthread_mutex_unlock(&(cache->units_head->m));
+
   while(cur != NULL) {
 		if(strcmp(cur->url, url) == 0) {
 			 pthread_mutex_unlock(&(cur->m));
@@ -373,13 +376,8 @@ int transfer_cached(struct CacheUnit* cache_unit, int client) {
     return 0;
   }
 
-<<<<<<< HEAD
-
-   pthread_mutex_lock(&(cache_unit->mes_head->list_m));
-
-=======
   pthread_mutex_lock(&(cache_unit->mes_head->list_m));
->>>>>>> c46c39888ae9397af0c7a0f230262e614556d7c0
+
   //printf("trans_cached lock");
   struct List* cur = cache_unit -> mes_head->next;
   pthread_mutex_unlock(&(cache_unit->mes_head->list_m));
