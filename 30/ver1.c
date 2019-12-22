@@ -16,6 +16,7 @@
 #include <fcntl.h>
 #include <sys/file.h>
 #include <pthread.h>
+#include<unistd.h>
 
 #define MAX_HEADER_SIZE 2048
 #define MAX_BODY_SIZE 2048
@@ -161,10 +162,10 @@ struct Cache* init_cache(struct Cache* cache) {
 }
 
 struct CacheUnit* add_cache_unit(struct Cache* cache, char* url, struct CacheUnit* cache_unit) {
-  //struct CacheUnit* cache_unit = NULL;
+  
 	pthread_mutex_lock(&(cache->units_head->m));
 	//printf("add_cache_unit head lock\n");
-  struct CacheUnit* cur =  cache->units_head->next;
+ 	 struct CacheUnit* cur =  cache->units_head->next;
 
 	if(cur == NULL) {
     	 	cache->units_head->next = cache_unit;
@@ -172,15 +173,18 @@ struct CacheUnit* add_cache_unit(struct Cache* cache, char* url, struct CacheUni
     //  printf("add_cache_unit Unlock\n");
       return cache_unit;
 	}
-  
+
   //printf("add_cache_unit Unlock\n");
-  struct CacheUnit* prev;
+  //struct CacheUnit* prev;
+/*
   if(cur != NULL) {
   	pthread_mutex_lock(&(cur->m));
   // 	printf("add_cache_unit lock\n");
   }
-  pthread_mutex_unlock(&(cache->units_head->m));
+*/
+    pthread_mutex_unlock(&(cache->units_head->m));
 
+/*
   while(cur != NULL) {
 		if(strcmp(cur->url, url) == 0) {
 			 pthread_mutex_unlock(&(cur->m));
@@ -202,8 +206,9 @@ struct CacheUnit* add_cache_unit(struct Cache* cache, char* url, struct CacheUni
 		pthread_mutex_unlock(&(prev->m));
     //printf("add_cache_unit Unlock\n");
 	}
-	
-	return cache_unit;
+*/	
+//	return cache_unit;
+	return NULL;
 }
 
 
@@ -529,7 +534,8 @@ int transfer_to_remote(struct ClientHostList* related) {
 }
 
 
-int transfer_back(struct ClientHostList* related) {
+int transfer_back(struct ClientHostList* related)  {
+
   char buf[MAX_HEADER_SIZE + MAX_BODY_SIZE+1] = "";
   int remote_host = related->remote_host;
   int client = related->client;
@@ -574,13 +580,15 @@ int transfer_back(struct ClientHostList* related) {
             struct CacheUnit* cache_unit = init_cache_unit(related->url);
             if(cache_unit != NULL) {
               pthread_mutex_lock(&(cache_unit->mes_head->list_m));
-            }
-            related->cache_unit = add_cache_unit(cache, related->url, cache_unit);
-            if(related->cache_unit == NULL) {
+              related->cache_unit = add_cache_unit(cache, related->url, cache_unit);
+            } 
+	    if(related->cache_unit == NULL) {
                pthread_mutex_unlock(&(cache_unit->mes_head->list_m));
             }
-            add_mes(related->cache_unit, buf, readen);
-	      }
+	    else {
+	       add_mes(related->cache_unit, buf, readen);
+	    }
+	   }
       //}
     }
   free(ans);
@@ -607,7 +615,7 @@ int transfer_back(struct ClientHostList* related) {
     }
     buf[readen]='\0';
     if(related->cache_unit != NULL)
-        add_mes(related->cache_unit, buf, readen);
+       add_mes(related->cache_unit, buf, readen);
 
     if(related->is_cli_alive == 1) {
       if(write(client, buf, readen) < 0) {
@@ -622,6 +630,15 @@ int transfer_back(struct ClientHostList* related) {
 }
 
 void* transfer(void *args) {
+	//struct sigaction sig;
+	//sig.sa_handler = SIG_IGN;
+	//sigaction(SIGPIPE, &sig, NULL);
+
+	sigset_t set;
+	sigemptyset(&set);
+	sigaddset(&set, SIGPIPE);
+	pthread_sigmask(SIG_BLOCK, &set, NULL);
+
 	int client = (int)(args);
 	struct ClientHostList related;
 	related.client = client;
@@ -651,9 +668,13 @@ void* transfer(void *args) {
 
 
 int main(int argc, char* argv[]) {
-  struct sigaction sig;
-  sig.sa_handler = SIG_IGN;
-  sigaction(SIGPIPE, &sig, NULL);
+       //struct sigaction sig;
+       //sig.sa_handler = SIG_IGN;
+       //sigaction(SIGPIPE, &sig, NULL);
+	sigset_t set;
+	sigemptyset(&set);
+	sigaddset(&set, SIGPIPE);
+	pthread_sigmask(SIG_BLOCK, &set, NULL);
 
 	cache = init_cache(cache);
 	if(cache == NULL) {
