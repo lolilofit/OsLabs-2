@@ -168,14 +168,16 @@ struct CacheUnit* add_cache_unit(struct Cache* cache, char* url, struct CacheUni
 
 	if(cur == NULL) {
     	  //cache_unit = init_cache_unit(id, url);
-      	  cache->units_head->next = cache_unit;
-	  pthread_mutex_unlock(&(cache->units_head->m));
+      	cache->units_head->next = cache_unit;
+	      pthread_mutex_unlock(&(cache->units_head->m));
     //  printf("add_cache_unit Unlock\n");
       return cache_unit;
 	}
-
+  cache->units_head->next = cache_unit;
+  cache-_unit->next = cur;
+  pthread_mutex_unlock(&(cache->units_head->m));
+  /*
   //printf("add_cache_unit Unlock\n");
-
   struct CacheUnit* prev;
   if(cur != NULL) {
   	pthread_mutex_lock(&(cur->m));
@@ -205,7 +207,7 @@ struct CacheUnit* add_cache_unit(struct Cache* cache, char* url, struct CacheUni
 		pthread_mutex_unlock(&(prev->m));
     //printf("add_cache_unit Unlock\n");
 	}
-	
+	*/
 	return cache_unit;
 }
 
@@ -380,12 +382,12 @@ int transfer_cached(struct CacheUnit* cache_unit, int client) {
 
   //printf("trans_cached lock");
   struct List* cur = cache_unit -> mes_head->next;
-  pthread_mutex_unlock(&(cache_unit->mes_head->list_m));
- 
   if(cur != NULL) {
     pthread_mutex_lock(&(cur->list_m)); 
     printf("trans_cached unlock");
   }
+  pthread_mutex_unlock(&(cache_unit->mes_head->list_m));
+
   while(cur != NULL) {
 		  if(write(client, cur->str, cur->len) < 0) {
     //      printf("can't write to remote host\n");
@@ -395,12 +397,11 @@ int transfer_cached(struct CacheUnit* cache_unit, int client) {
       }
       struct List* prev = cur;
       cur = cur->next;
-      pthread_mutex_unlock(&(prev->list_m));
-     // printf("trans_cached unlock");
       if(cur != NULL) {
         pthread_mutex_lock(&(cur->list_m));
        // printf("trans_cached lock");
       }
+      pthread_mutex_unlock(&(cache_unit->mes_head->list_m));
   }
 
   //pthread_mutex_unlock(&(cache_unit->m));
@@ -492,7 +493,6 @@ int transfer_to_remote(struct ClientHostList* related) {
     strncat(url, h.host, readen);
   if(param->path != NULL)
     strncat(url, param->path, readen);
-
         //printf("BEFORe find in cache by url %s, client %d, host %d \n", url, related->client, related->remote_host);
   struct CacheUnit* found = find_cache_by_url(cache, url);
   printf("found end\n");
