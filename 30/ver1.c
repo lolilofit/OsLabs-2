@@ -674,9 +674,9 @@ void* transfer(void *args) {
 		if(related.remote_host > 0) {
 			close(related.remote_host);
 			related.remote_host = -1;
+			if(related.cache_unit == NULL)
+				free(related.url);
 		}
-		
-		printf("CYCLE!!!!!\n");
 	}
 	return 0;
 }
