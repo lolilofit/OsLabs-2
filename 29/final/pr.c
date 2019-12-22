@@ -384,15 +384,40 @@ struct ClientHostList* find_related(struct ClientHostList* head, int find_him) {
 
 
 int transfer_cached(struct CacheUnit* cache_unit, int client) {
-        printf("transfer to particular waiter\n");
-         struct List* cur = cache_unit -> mes_head->next;
-                while(cur != NULL) {
-                        if(write(client, cur->str, cur->len) < 0) {
-                                printf("can't write to remote host\n");
+        if(cache_unit == NULL) {
+        printf("null cache\n");
+        return -1;
+  }
+        if(cache_unit->waiting == NULL) {
+                printf("null waiting\n");
+                return -1;
+        }
+
+  struct WaitingOne* client = cache_unit->waiting->next;
+  struct WaitingOne* prev;
+
+  while(client != NULL) {
+      if(client->fd == client) {
+        struct List* cur = cache_unit -> mes_head->next;
+        int count = 0;
+        printf("transfer to cli %d blocks %d\n", client->fd, client->blocks_transfered);
+
+        while(cur != NULL) {
+                if(count >=  client->blocks_transfered) {
+                        if(write(client->fd, cur->str, cur->len) < 0) {
+                                printf("can't write to waiting client\n");
                                 return -1;
                         }
-                        cur = cur->next;
                 }
+                count++;
+                cur = cur->next;
+        }
+        client->blocks_transfered = count;
+        printf("transfered now %d\n", client->blocks_transfered);
+      }
+        client = client->next;
+        }
+        //printf("transfer to waiters end\n");
         return 0;
 }
 
@@ -400,7 +425,7 @@ int transfer_cached(struct CacheUnit* cache_unit, int client) {
 int transfer_to_waiters(struct CacheUnit* cache_unit) {
         //printf("transfer to waiters\n");
         if(cache_unit == NULL) {
-    printf("null cache\n");
+        printf("null cache\n");
         return -1;
   }
         if(cache_unit->waiting == NULL) {
